@@ -1,0 +1,178 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Koposol Partner Design System - Based on purple/lilac branding */
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+
+    --primary: 262 52% 47%;
+    --primary-foreground: 0 0% 98%;
+
+    --secondary: 262 30% 85%;
+    --secondary-foreground: 262 52% 25%;
+
+    --muted: 262 10% 95%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --accent: 262 40% 90%;
+    --accent-foreground: 262 52% 25%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 262 52% 47%;
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 262 15% 98%;
+    --sidebar-foreground: 262 20% 30%;
+    --sidebar-primary: 262 52% 47%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 262 20% 92%;
+    --sidebar-accent-foreground: 262 52% 25%;
+    --sidebar-border: 262 20% 88%;
+    --sidebar-ring: 262 52% 47%;
+
+    /* Koposol specific colors */
+    --koposol-primary: 262 52% 47%;
+    --koposol-secondary: 262 30% 85%;
+    --koposol-accent: 98 100% 70%;
+    --koposol-red: 0 84% 60%;
+    --koposol-blue: 220 91% 45%;
+  }
+
+  .dark {
+    --background: 262 30% 8%;
+    --foreground: 262 10% 95%;
+
+    --card: 262 30% 8%;
+    --card-foreground: 262 10% 95%;
+
+    --popover: 262 30% 8%;
+    --popover-foreground: 262 10% 95%;
+
+    --primary: 262 52% 60%;
+    --primary-foreground: 262 30% 8%;
+
+    --secondary: 262 30% 15%;
+    --secondary-foreground: 262 10% 95%;
+
+    --muted: 262 30% 15%;
+    --muted-foreground: 262 10% 70%;
+
+    --accent: 262 30% 15%;
+    --accent-foreground: 262 10% 95%;
+
+    --destructive: 0 62.8% 50%;
+    --destructive-foreground: 262 10% 95%;
+
+    --border: 262 30% 15%;
+    --input: 262 30% 15%;
+    --ring: 262 52% 60%;
+
+    --sidebar-background: 262 30% 10%;
+    --sidebar-foreground: 262 10% 90%;
+    --sidebar-primary: 262 52% 60%;
+    --sidebar-primary-foreground: 262 30% 8%;
+    --sidebar-accent: 262 30% 15%;
+    --sidebar-accent-foreground: 262 10% 90%;
+    --sidebar-border: 262 30% 15%;
+    --sidebar-ring: 262 52% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Custom Koposol styles */
+.koposol-gradient {
+  background: linear-gradient(135deg, hsl(var(--koposol-primary)) 0%, hsl(var(--koposol-secondary)) 100%);
+}
+
+.koposol-text-gradient {
+  background: linear-gradient(135deg, hsl(var(--koposol-primary)) 0%, hsl(var(--koposol-accent)) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Animation utilities */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.6s ease-out;
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.6s ease-out;
+}
+
+/* Kanban specific styles */
+.kanban-column {
+  @apply bg-muted/50 rounded-lg p-4;
+  min-height: 400px;
+}
+
+.kanban-card {
+  @apply bg-card border rounded-lg p-4 mb-3 shadow-sm hover:shadow-md transition-shadow cursor-pointer;
+}
+
+.kanban-card.status-sent {
+  @apply border-l-4 border-l-blue-500;
+}
+
+.kanban-card.status-in-analysis {
+  @apply border-l-4 border-l-yellow-500;
+}
+
+.kanban-card.status-docs-requested {
+  @apply border-l-4 border-l-orange-500;
+}
+
+.kanban-card.status-approved {
+  @apply border-l-4 border-l-green-500;
+}
+
+.kanban-card.status-rejected {
+  @apply border-l-4 border-l-red-500;
+}
