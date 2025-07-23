@@ -7,18 +7,20 @@ import { toast } from 'sonner';
 interface FileUploadProps {
   label: string;
   required?: boolean;
-  onFileSelect?: (file: File) => void;
+  onFileSelect?: (files: File[]) => void; // Alterado para retornar um array de arquivos
   accept?: string;
+  multiple?: boolean; // Nova propriedade para múltiplos arquivos
 }
 
 const FileUpload: React.FC<FileUploadProps> = ({ 
   label, 
   required = true, 
   onFileSelect,
-  accept = ".pdf,.jpg,.jpeg,.png"
+  accept = ".pdf,.jpg,.jpeg,.png",
+  multiple = false // Padrão para um único arquivo
 }) => {
   const [dragActive, setDragActive] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]); // Alterado para um array de arquivos
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDrag = (e: React.DragEvent) => {
@@ -36,34 +38,46 @@ const FileUpload: React.FC<FileUploadProps> = ({
     e.stopPropagation();
     setDragActive(false);
     
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const file = e.dataTransfer.files[0];
-      handleFileSelect(file);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const files = Array.from(e.dataTransfer.files);
+      handleFileSelect(files);
     }
   };
 
-  const handleFileSelect = (file: File) => {
-    // Verificar tamanho do arquivo (máximo 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('Arquivo muito grande! Tamanho máximo: 5MB');
-      return;
-    }
+  const handleFileSelect = (files: File[]) => {
+    let newFiles = multiple ? [...selectedFiles, ...files] : [...files];
 
-    // Verificar tipo do arquivo
-    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
-    if (!allowedTypes.includes(file.type)) {
-      toast.error('Tipo de arquivo não suportado! Use PDF, JPG ou PNG');
-      return;
-    }
+    // Filtrar arquivos duplicados
+    newFiles = newFiles.filter((file, index, self) =>
+      index === self.findIndex((f) => f.name === file.name && f.size === file.size)
+    );
 
-    setSelectedFile(file);
-    onFileSelect?.(file);
-    toast.success('Arquivo selecionado com sucesso!');
+    // Validar cada arquivo
+    const validFiles = newFiles.filter(file => {
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error(`Arquivo '${file.name}' é muito grande! Tamanho máximo: 5MB`);
+        return false;
+      }
+      const allowedTypes = accept.split(',').map(t => t.trim());
+      // Simple mime type check from extension. For robust check, use file.type
+      const fileExtension = `.${file.name.split('.').pop()}`;
+      if (!allowedTypes.includes(fileExtension) && !allowedTypes.includes(file.type)) {
+         toast.error(`Tipo de arquivo '${file.name}' não suportado!`);
+         return false;
+      }
+      return true;
+    });
+
+    if (validFiles.length > 0) {
+      setSelectedFiles(validFiles);
+      onFileSelect?.(validFiles);
+      toast.success(`${validFiles.length} arquivo(s) selecionado(s) com sucesso!`);
+    }
   };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      handleFileSelect(e.target.files[0]);
+    if (e.target.files && e.target.files.length > 0) {
+      handleFileSelect(Array.from(e.target.files));
     }
   };
 
@@ -71,8 +85,11 @@ const FileUpload: React.FC<FileUploadProps> = ({
     fileInputRef.current?.click();
   };
 
-  const removeFile = () => {
-    setSelectedFile(null);
+  const removeFile = (fileToRemove: File) => {
+    const updatedFiles = selectedFiles.filter(file => file !== fileToRemove);
+    setSelectedFiles(updatedFiles);
+    onFileSelect?.(updatedFiles);
+    // Reset input value to allow re-selecting the same file after removing
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -83,10 +100,10 @@ const FileUpload: React.FC<FileUploadProps> = ({
       <Label>{label} {required && '*'}</Label>
       
       <div
-        className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
+        className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${
           dragActive 
             ? 'border-primary bg-primary/10' 
-            : selectedFile
+            : selectedFiles.length > 0
               ? 'border-green-500 bg-green-50'
               : 'border-gray-300 hover:border-primary'
         }`}
@@ -99,32 +116,40 @@ const FileUpload: React.FC<FileUploadProps> = ({
         <input
           ref={fileInputRef}
           type="file"
+          multiple={multiple}
           accept={accept}
           onChange={handleFileInputChange}
           className="hidden"
         />
         
-        {selectedFile ? (
-          <div className="space-y-2">
-            <div className="flex items-center justify-center space-x-2">
-              <FileText className="h-6 w-6 text-green-500" />
-              <Check className="h-4 w-4 text-green-500" />
+        {selectedFiles.length > 0 ? (
+          <div className="w-full">
+            <p className="text-sm font-medium text-gray-700 mb-2 text-left">Arquivos Selecionados:</p>
+            <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
+              {selectedFiles.map((file, index) => (
+                <div key={index} className="flex items-center justify-between bg-white p-2 rounded-md border border-gray-200">
+                  <div className="flex items-center space-x-2 overflow-hidden">
+                    <FileText className="h-5 w-5 text-primary flex-shrink-0" />
+                    <span className="text-sm text-gray-600 truncate" title={file.name}>{file.name}</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                     <span className="text-xs text-gray-500">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
+                     <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeFile(file);
+                      }}
+                      className="text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-red-100"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
-            <div className="flex items-center justify-center space-x-2">
-              <p className="text-sm text-green-700 font-medium">{selectedFile.name}</p>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  removeFile();
-                }}
-                className="text-red-500 hover:text-red-700"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <p className="text-xs text-green-600">
-              {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-            </p>
+            {multiple && (
+              <p className="text-xs text-gray-500 mt-2 text-center">Você pode adicionar mais arquivos.</p>
+            )}
           </div>
         ) : (
           <div className="space-y-2">

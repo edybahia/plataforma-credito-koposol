@@ -19,6 +19,12 @@ import Kanban from '@/pages/admin/Kanban';
 import ProposalsPage from '@/pages/admin/Proposals';
 import Settings from '@/pages/admin/Settings';
 
+// Integrator Pages
+import IntegratorDashboard from '@/pages/integrator/Dashboard';
+import GenerateLink from '@/pages/integrator/GenerateLink';
+import IntegratorKanban from '@/pages/integrator/Kanban';
+import SubmitProposal from '@/pages/integrator/SubmitProposal';
+
 
 
 const App = () => {
@@ -44,6 +50,14 @@ const App = () => {
               <Route path="proposals" element={<ProposalsPage />} />
               <Route path="settings" element={<Settings />} />
             </Route>
+          </Route>
+
+          {/* Protected Integrator Routes */}
+          <Route element={<ProtectedRoute />}>
+            <Route path="/integrator/dashboard" element={<IntegratorDashboard />} />
+            <Route path="/integrator/generate-link" element={<GenerateLink />} />
+            <Route path="/integrator/kanban" element={<IntegratorKanban />} />
+            <Route path="/integrator/submit-proposal" element={<SubmitProposal />} />
           </Route>
 
           {/* Fallback Route */}

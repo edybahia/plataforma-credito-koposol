@@ -31,6 +31,19 @@ const Register = () => {
     fotoFachada: null
   });
 
+  // Estado para os projetos de engenharia
+  const [projectsData, setProjectsData] = useState([
+    { nomeCliente: '', potenciaKwp: '', artFile: null, memorialFile: null, outrosFile: null },
+    { nomeCliente: '', potenciaKwp: '', artFile: null, memorialFile: null, outrosFile: null },
+    { nomeCliente: '', potenciaKwp: '', artFile: null, memorialFile: null, outrosFile: null },
+  ]);
+
+  const handleProjectDataChange = (index: number, field: string, value: any) => {
+    const updatedProjects = [...projectsData];
+    updatedProjects[index] = { ...updatedProjects[index], [field]: value };
+    setProjectsData(updatedProjects);
+  };
+
   // Form data state
   const [companyData, setCompanyData] = useState({
     companyName: '',
@@ -365,95 +378,159 @@ const Register = () => {
     }
   };
 
+  // Função auxiliar para upload de arquivo
+  const uploadFile = async (file: File | null, path: string) => {
+    if (!file) return null;
+    const { data, error } = await supabase.storage
+      .from('documentos-integradores')
+      .upload(path, file);
+
+    if (error) {
+      throw new Error(`Erro no upload do arquivo ${file.name}: ${error.message}`);
+    }
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('documentos-integradores')
+      .getPublicUrl(data.path);
+
+    return publicUrl;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Formulário enviado!');
-    
-    // Validar a etapa atual antes de enviar
-    if (currentStep === 4 && !validateStep4()) {
+    setIsLoading(true);
+
+    if (!validateStep1() || !validateStep2() || !validateStep3() || !validateStep4()) {
+      toast.error('Por favor, preencha todos os campos obrigatórios corretamente.');
+      setIsLoading(false);
       return;
     }
-    
-    setIsLoading(true);
-    
+
     try {
-      // Construir o endereço completo
-      const enderecoCompleto = [
-        companyData.street,
-        companyData.number,
-        companyData.complement,
-        companyData.neighborhood,
-        companyData.city,
-        companyData.state,
-        companyData.cep
-      ].filter(Boolean).join(', ');
+      // 1. Criar usuário no Supabase Auth
+      const { data: { user }, error: authError } = await supabase.auth.signUp({
+        email: ownerData.email,
+        password: ownerData.password,
+      });
 
-      // Usar o e-mail real do formulário ou gerar um para teste
-      let email = ownerData.email || 'teste' + Math.floor(Math.random() * 10000) + '@teste.com';
-      const password = ownerData.password || 'Teste@123456';
-      
-      // Normalizar o e-mail (remover espaços, converter para minúsculas)
-      email = email.trim().toLowerCase();
-      
-      // Verificar se o e-mail é válido para o Supabase
-      // O Supabase exige um formato específico de e-mail
-      // Usar um e-mail válido para garantir que o Auth funcione
-      // Formato: teste+[timestamp]@example.com para garantir unicidade
+      if (authError) throw new Error(`Erro de autenticação: ${authError.message}`);
+      if (!user) throw new Error('Usuário não foi criado.');
+
+      const userId = user.id;
       const timestamp = new Date().getTime();
-      const validEmail = `teste+${timestamp}@example.com`;
-      
-      console.log('Tentando cadastro com:', { email });
-      console.log('E-mail válido para Auth:', { validEmail });
-      
-      // Tentar inserir diretamente na tabela integradores sem criar usuário
-      // Esta abordagem é mais simples e evita problemas com o Supabase Auth
-      try {
-        // Dados do integrador para inserção
-        const integradorData = {
-          nome_empresa: companyData.companyName || 'Empresa não informada',
-          cnpj: companyData.cnpj || '00000000000000',
-          email: email,
-          telefone: companyData.phone || ownerData.phone || '00000000000',
-          endereco: enderecoCompleto || 'Endereço não informado',
-          status: 'pendente', // Status inicial sempre pendente
-          // Campos adicionais que existem na tabela (nomes alinhados com o banco)
-          revenue: companyData.revenue || '0',
-          team_size: companyData.teamSize || 'Não informado',
-          has_installation: companyData.hasInstallation || 'Não informado',
-          how_knew_us: companyData.howKnewUs || 'Não informado'
-        };
 
-        console.log('Dados do integrador para inserção:', integradorData);
+      // 2. Fazer upload de todos os arquivos
+      const fileUploadPromises = [];
 
-        // Inserir na tabela integradores usando inserção direta
-        const { data: insertData, error: insertError } = await supabase
-          .from('profiles')
-          .insert([integradorData]);
-          
-        if (insertError) {
-          console.error('Erro ao inserir integrador:', insertError);
-          throw insertError;
+      // Documentos da Etapa 3
+      const docMappings: { [key: string]: string } = {
+        contratoSocial: 'contrato_social_url',
+        comprovanteEndereco: 'comprovante_endereco_url',
+        rgSocios: 'rg_socio_url',
+        cnhSocios: 'cnh_socio_url',
+        dadosBancarios: 'comprovante_bancario_url',
+        fotoFachada: 'foto_fachada_url',
+      };
+
+      for (const [key, file] of Object.entries(documents)) {
+        if (file) {
+          const path = `${userId}/documentos_empresa/${key}_${timestamp}_${(file as File).name}`;
+          fileUploadPromises.push(uploadFile(file as File, path).then(url => ({ dbKey: docMappings[key], url })));
         }
-        
-        console.log('Integrador inserido com sucesso!');
-        
-        // Removida a tentativa de criar usuário no Auth
-        // O cadastro na tabela de integradores é suficiente para o funcionamento do sistema
-        // O usuário pode ser criado posteriormente pelo administrador quando aprovar o integrador
-      } catch (insertError: any) {
-        console.error('Erro ao inserir integrador:', insertError);
-        throw insertError;
       }
-      
-      console.log('Integrador inserido com sucesso!');
 
-      // Se chegou aqui, o cadastro foi bem-sucedido
-      toast.success('Cadastro enviado com sucesso! Você receberá um retorno em até 5 dias úteis.');
-      navigate('/login');
+      // Documentos dos Projetos (Etapa 4)
+      projectsData.forEach((project, index) => {
+        if (project.artFile) {
+          const path = `${userId}/projetos/${index}/art_${timestamp}_${(project.artFile as File).name}`;
+          fileUploadPromises.push(uploadFile(project.artFile, path).then(url => ({ dbKey: `project_${index}_art`, url })));
+        }
+        if (project.memorialFile) {
+          const path = `${userId}/projetos/${index}/memorial_${timestamp}_${(project.memorialFile as File).name}`;
+          fileUploadPromises.push(uploadFile(project.memorialFile, path).then(url => ({ dbKey: `project_${index}_memorial`, url })));
+        }
+        if (project.outrosFile) {
+          const path = `${userId}/projetos/${index}/outros_${timestamp}_${(project.outrosFile as File).name}`;
+          fileUploadPromises.push(uploadFile(project.outrosFile, path).then(url => ({ dbKey: `project_${index}_outros`, url })));
+        }
+      });
+
+      const uploadedFiles = await Promise.all(fileUploadPromises);
       
+      const allUrls: { [key: string]: string | null } = uploadedFiles.reduce((acc: any, { dbKey, url }) => {
+        if (dbKey) acc[dbKey] = url;
+        return acc;
+      }, {});
+
+      const integradorDocumentUrls = Object.keys(allUrls)
+        .filter(key => !key.startsWith('project_'))
+        .reduce((obj, key) => {
+          obj[key] = allUrls[key];
+          return obj;
+        }, {} as { [key: string]: string | null });
+
+      // 3. Inserir dados na tabela 'integradores'
+      const { data: integradorData, error: integradorError } = await supabase
+        .from('integradores')
+        .insert([{
+          user_id: userId,
+          nome_empresa: companyData.companyName,
+          cnpj: companyData.cnpj,
+          email: companyData.companyEmail,
+          cep: companyData.cep,
+          logradouro: companyData.street,
+          numero: companyData.number,
+          complemento: companyData.complement,
+          estado: companyData.state,
+          cidade: companyData.city,
+          bairro: companyData.neighborhood,
+          telefone: companyData.phone,
+          tamanho_equipe: companyData.teamSize,
+          faturamento_medio: companyData.revenue,
+          possui_equipe_instalacao: companyData.hasInstallation,
+          como_conheceu: companyData.howKnewUs,
+          media_projetos_mes: companyData.averageProjects,
+          problemas_credito: companyData.creditIssues,
+          status: 'pendente',
+          ...integradorDocumentUrls, // Adiciona apenas as URLs dos documentos da empresa
+        }])
+        .select('id')
+        .single();
+
+      if (integradorError) throw new Error(`Erro ao salvar integrador: ${integradorError.message}`);
+      if (!integradorData) throw new Error('Não foi possível obter o ID do integrador criado.');
+      const integradorId = integradorData.id;
+
+      // 4. Inserir dados dos projetos
+      const projetosParaInserir = projectsData
+        .filter(p => p.nomeCliente || p.potenciaKwp || p.artFile || p.memorialFile || p.outrosFile)
+        .map((p, index) => ({
+          integrador_id: integradorId,
+          nome_cliente: p.nomeCliente,
+          potencia_kwp: p.potenciaKwp,
+          art_url: urls[`project_${index}_art`],
+          memorial_descritivo_url: urls[`project_${index}_memorial`],
+          outros_documentos_url: urls[`project_${index}_outros`],
+        }));
+
+      if (projetosParaInserir.length > 0) {
+        const { error: projetosError } = await supabase.from('projetos_integrador').insert(projetosParaInserir);
+        if (projetosError) throw new Error(`Erro ao salvar projetos: ${projetosError.message}`);
+      }
+
+      // 5. Inserir dados na tabela 'profiles'
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert([{ id: userId, tipo_usuario: 'integrador' }]);
+
+      if (profileError) throw new Error(`Erro ao criar perfil: ${profileError.message}`);
+
+      toast.success('Cadastro realizado com sucesso! Sua solicitação foi enviada para análise.');
+      navigate('/login');
+
     } catch (error: any) {
-      console.error('Erro:', error);
-      toast.error(`Erro ao enviar cadastro: ${error.message || 'Tente novamente.'}`);
+      console.error('Erro no cadastro:', error);
+      toast.error(`Falha no cadastro: ${error.message}`);
     } finally {
       setIsLoading(false);
     }
@@ -822,15 +899,15 @@ const Register = () => {
                 onFileSelect={(file) => setDocuments({...documents, comprovanteEndereco: file})} 
               />
               <FileUpload 
-                label="RG dos Sócios" 
+                label="RG do Sócio" 
                 onFileSelect={(file) => setDocuments({...documents, rgSocios: file})} 
               />
               <FileUpload 
-                label="CNH dos Sócios" 
+                label="CNH do Sócio" 
                 onFileSelect={(file) => setDocuments({...documents, cnhSocios: file})} 
               />
               <FileUpload 
-                label="Comprovante de Dados Bancários" 
+                label="Comprovante de Dados Bancário" 
                 onFileSelect={(file) => setDocuments({...documents, dadosBancarios: file})} 
               />
               <FileUpload 
@@ -846,7 +923,7 @@ const Register = () => {
           <div className="space-y-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Projetos de Engenharia</h3>
             
-            {[1, 2, 3, 4, 5].map((projectNum) => (
+            {[1, 2, 3].map((projectNum, index) => (
               <Card key={projectNum} className="p-4">
                 <h4 className="text-md font-semibold text-gray-800 mb-4">
                   Projeto de Engenharia {projectNum} *
@@ -855,16 +932,37 @@ const Register = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Nome do Cliente (do projeto)</Label>
-                    <Input placeholder="Nome do cliente"  />
+                    <Input 
+                      placeholder="Nome do cliente"  
+                      value={projectsData[index].nomeCliente}
+                      onChange={(e) => handleProjectDataChange(index, 'nomeCliente', e.target.value)}
+                    />
                   </div>
 
                   <div className="space-y-2">
                     <Label>Potência do Projeto (kWp)</Label>
-                    <Input placeholder="0.00" type="number" step="0.01"  />
+                    <Input 
+                      placeholder="0.00" 
+                      type="number" 
+                      step="0.01"  
+                      value={projectsData[index].potenciaKwp}
+                      onChange={(e) => handleProjectDataChange(index, 'potenciaKwp', e.target.value)}
+                    />
                   </div>
 
-                  <div className="md:col-span-2">
-                    <FileUpload label="Anexo de ART (Anotação de Responsabilidade Técnica)" />
+                  <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <FileUpload 
+                      label="Anexo de ART" 
+                      onFileSelect={(file) => handleProjectDataChange(index, 'artFile', file)}
+                    />
+                    <FileUpload 
+                      label="Memorial Descritivo" 
+                      onFileSelect={(file) => handleProjectDataChange(index, 'memorialFile', file)}
+                    />
+                    <FileUpload 
+                      label="Outros Documentos" 
+                      onFileSelect={(file) => handleProjectDataChange(index, 'outrosFile', file)}
+                    />
                   </div>
                 </div>
               </Card>

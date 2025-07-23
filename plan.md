@@ -1,87 +1,153 @@
-# Plano de Desenvolvimento - Koposol Partner
+# Plano de Desenvolvimento e Análise Técnica - Koposol Partner
 
-## Introdução
+**Última Atualização:** 22/07/2025
 
-Este documento serve como um guia técnico e de planejamento para a plataforma Koposol Partner. Ele detalha a arquitetura, a lógica de funcionamento e a estrutura de dados, e deve ser mantido rigorosamente atualizado a cada nova implementação.
+## 1. Introdução
 
-### 1. Visão Geral e Arquitetura
+Este documento é o guia central para o desenvolvimento e manutenção da plataforma **Koposol Partner**. Ele detalha a arquitetura da aplicação, a estrutura do banco de dados, os fluxos de trabalho e as diretrizes para futuras implementações. O objetivo é manter um registro claro e atualizado para facilitar a colaboração e a evolução do projeto.
 
-A plataforma Koposol Partner é um sistema web (SaaS) projetado para otimizar e gerenciar o ciclo de vida dos parceiros integradores, desde o cadastro inicial até a aprovação e o gerenciamento contínuo.
+### 1.2. Propósito e Justificativa
+
+A plataforma Koposol Partner foi criada para resolver um desafio central no setor de energia solar: a gestão ineficiente e descentralizada de uma rede crescente de parceiros integradores. Antes desta solução, processos como cadastro, verificação de documentos, aprovação e acompanhamento de propostas eram frequentemente manuais, baseados em e-mails e planilhas.
+
+**A aplicação visa atacar os seguintes problemas:**
+
+*   **Falta de Padronização:** O processo de cadastro de novos parceiros era suscetível a erros e à falta de informações essenciais.
+*   **Lentidão no Ciclo de Vendas:** A comunicação manual para aprovar parceiros e propostas gerava gargalos, atrasando o início dos projetos e impactando a receita.
+*   **Falta de Visibilidade:** A gestão não tinha uma visão clara e em tempo real do status de cada parceiro ou do funil de propostas, dificultando o planejamento estratégico.
+*   **Experiência do Parceiro:** A ausência de um portal unificado tornava a experiência do integrador fragmentada e pouco profissional.
+
+**O objetivo da Koposol Partner é, portanto, ser a espinha dorsal operacional que:**
+
+1.  **Centraliza e Automatiza:** Unifica todo o ciclo de vida do parceiro em um único sistema, desde o primeiro contato até a gestão de projetos.
+2.  **Aumenta a Eficiência:** Reduz o tempo gasto em tarefas administrativas, permitindo que a equipe foque em atividades de maior valor, como o suporte estratégico aos parceiros.
+3.  **Garante Escalabilidade:** Fornece uma base tecnológica sólida que permite à Koposol expandir sua rede de parceiros sem aumentar proporcionalmente a complexidade operacional.
+4.  **Melhora a Colaboração:** Oferece um portal profissional para os integradores, melhorando a comunicação, a transparência e o relacionamento comercial.
+
+## 2. Análise da Aplicação
+
+### 2.1. Visão Geral e Arquitetura
+
+A Koposol Partner é uma aplicação web (SaaS) desenvolvida para gerenciar o ciclo de vida dos parceiros integradores de energia solar, desde o cadastro e aprovação até o gerenciamento de propostas e projetos.
 
 -   **Arquitetura Tecnológica**:
-    -   **Frontend**: Uma Single-Page Application (SPA) construída com **React** e **Vite**, garantindo uma experiência de usuário rápida e reativa. O uso de **TypeScript** assegura a tipagem estática, reduzindo erros em tempo de desenvolvimento. A interface é estilizada com **Tailwind CSS** e componentes pré-construídos de **shadcn/ui**, resultando em um design moderno e consistente.
-    -   **Backend (BaaS)**: A aplicação utiliza **Supabase** como sua espinha dorsal, aproveitando seus serviços integrados:
-        -   **Database**: Um banco de dados **PostgreSQL** relacional para armazenar todos os dados da aplicação.
-        -   **Authentication**: Serviço completo para gerenciamento de usuários, incluindo registro, login, recuperação de senha e segurança baseada em JWT.
-        -   **Row Level Security (RLS)**: Políticas de segurança a nível de linha do banco de dados que garantem que os usuários só possam acessar os dados que lhes são permitidos.
+    -   **Frontend**: Single-Page Application (SPA) construída com **React** e **Vite**, proporcionando uma experiência de usuário rápida e moderna.
+        -   **Linguagem**: **TypeScript**, para segurança de tipos e robustez do código.
+        -   **Estilização**: **Tailwind CSS** e **shadcn/ui**, para uma UI consistente e de fácil manutenção.
+    -   **Backend (BaaS)**: **Supabase**, que fornece uma suíte de serviços integrados:
+        -   **Database**: Banco de dados **PostgreSQL**.
+        -   **Authentication**: Gerenciamento completo de usuários (login, registro, etc.).
+        -   **Storage**: Armazenamento de arquivos, como documentos de projetos.
+        -   **Row Level Security (RLS)**: Camada de segurança que garante o isolamento e a permissão de dados.
 
-### 2. Lógica de Funcionamento e Fluxos de Usuário
+### 2.2. O que a Plataforma Faz (Visão Funcional)
 
-A aplicação opera com base em dois papéis de usuário distintos: **Integrador** e **Administrador**.
+A plataforma é um **portal online exclusivo** criado para ser o **ponto central de controle e colaboração** entre a Koposol e seus parceiros integradores. Ela automatiza e organiza todo o ciclo de vida de um parceiro, com funcionalidades específicas para cada tipo de usuário:
 
--   **Fluxo do Integrador (Cadastro e Acesso)**:
-    1.  **Registro**: O processo começa na página `/register`. O futuro parceiro preenche um formulário com suas credenciais (e-mail/senha) e os dados da sua empresa.
-    2.  **Criação no Banco de Dados**: Ao submeter o formulário, a aplicação executa duas operações atômicas no Supabase:
-        -   Cria uma nova entrada na tabela `auth.users` do Supabase Auth.
-        -   Cria um novo registro na tabela `public.integradores`, preenchendo-o com os dados da empresa e vinculando-o ao `user_id` recém-criado. O campo `status` é definido, por padrão, como `'pendente'`.
-    3.  **Acesso Restrito**: Após o cadastro, se o integrador tentar fazer login, o sistema (futuramente) deve verificar seu status. Se for `'pendente'`, o acesso ao dashboard principal é bloqueado, e uma mensagem informativa é exibida.
-    4.  **Acesso Total**: Uma vez que um administrador aprova o cadastro (alterando o status para `'aprovado'`), o integrador obtém acesso completo às funcionalidades da plataforma.
+**1. Para o Administrador (Equipe Koposol):**
 
--   **Fluxo do Administrador (Gerenciamento)**:
-    1.  **Login**: O administrador acessa o sistema através da página `/login` com suas credenciais de `admin`.
-    2.  **Visualização Centralizada**: Na página "Gerenciar Integradores" (`/admin/integrators`), o sistema busca todos os registros da tabela `integradores`.
-    3.  **Interface de Gestão**: Os dados são apresentados em uma interface com abas que separam os integradores por `status` (Pendentes, Aprovados, Rejeitados), permitindo uma análise rápida e organizada.
-    4.  **Ação de Aprovação/Rejeição**: O administrador pode visualizar os detalhes de cada integrador e, através de botões de ação, aprovar ou rejeitar um cadastro. Essa ação dispara um comando `UPDATE` no Supabase, que altera o valor do campo `status` na tabela `integradores` para o registro específico.
+O administrador tem uma visão completa e controle total sobre a rede de parceiros.
 
-### 3. Estrutura Detalhada do Banco de Dados (Supabase)
+-   **Gerenciamento de Cadastros:** Acompanha os novos parceiros que se cadastram, que aparecem com o status "Pendente".
+-   **Aprovação e Rejeição:** Analisa os dados de cada parceiro e, com um clique, **aprova** ou **rejeita** o cadastro, controlando quem pode vender os produtos da Koposol.
+-   **Dashboard Centralizado:** Visualiza todos os parceiros organizados por status (Pendentes, Aprovados, Rejeitados) para uma gestão rápida.
+-   **(Futuro) Gestão de Propostas:** Acompanha o funil de vendas em tempo real, visualizando as propostas que os parceiros estão criando para clientes finais.
 
-A integridade dos dados e a lógica de negócios dependem fundamentalmente da correta interação entre as seguintes tabelas:
+**2. Para o Parceiro (Empresa Integradora):**
+
+O parceiro ganha um portal profissional para gerenciar seu trabalho com a Koposol.
+
+-   **Autocadastro:** O parceiro interessado preenche um formulário completo com os dados da sua empresa.
+-   **Portal Exclusivo:** Após ser **aprovado**, o parceiro ganha acesso a uma área logada.
+-   **(Futuro) Criação de Propostas:** Utiliza uma ferramenta para simular sistemas, gerar propostas comerciais com a marca da Koposol e enviá-las aos clientes.
+-   **(Futuro) Acompanhamento de Vendas (Kanban):** Gerencia suas propostas em um painel Kanban, movendo-as entre colunas como "Em negociação", "Aprovada" e "Instalação".
+-   **(Futuro) Gestão de Projetos:** Faz o upload de documentos técnicos de projetos (ART, memoriais) após fechar uma venda, mantendo tudo organizado.
+
+### 2.3. Estrutura do Código-Fonte (`/src`)
+
+O projeto segue uma estrutura modular e organizada para facilitar a escalabilidade:
+
+-   `components/`: Contém componentes React reutilizáveis (ex: `Button`, `Card`, `Input`). A subpasta `ui/` abriga os componentes base do shadcn.
+-   `pages/`: Define as principais rotas e visualizações da aplicação (ex: `Login.tsx`, `Register.tsx`, `admin/Dashboard.tsx`).
+-   `hooks/`: Armazena hooks customizados que encapsulam lógicas de negócio (ex: `useAuth` para informações de autenticação).
+-   `lib/`: Funções utilitárias, como `utils.ts` (para formatação) e `brazil-states.ts`.
+-   `integrations/supabase/`: Centraliza a comunicação com o Supabase:
+    -   `client.ts`: Inicializa e exporta o cliente Supabase para ser usado em toda a aplicação.
+    -   `types.ts`: Contém as definições de tipos TypeScript geradas a partir do schema do banco de dados, garantindo a consistência entre o frontend e o backend.
+-   `contexts/`: Provedores de Contexto React para gerenciamento de estado global, como o `AuthContext.tsx`.
+
+## 3. Estrutura Detalhada do Banco de Dados (Supabase)
+
+A seguir, uma descrição detalhada das tabelas, suas colunas e relacionamentos, baseada na inspeção direta do banco de dados.
+
+### 3.1. Autenticação e Perfis
 
 -   **`auth.users`** (Gerenciada pelo Supabase)
-    -   **Propósito**: Coração da autenticação. Armazena de forma segura as identidades dos usuários.
-    -   **Campos Chave**: `id` (UUID), `email`, `encrypted_password`.
-    -   **Interação**: O `id` desta tabela é a chave estrangeira (`user_id`) que conecta um login a um perfil e a um cadastro de integrador, garantindo que todos os dados de um usuário estejam interligados.
+    -   **Propósito**: Armazena as credenciais de todos os usuários.
+    -   **Colunas Chave**: `id` (UUID), `email`, `encrypted_password`.
 
 -   **`public.profiles`**
-    -   **Propósito**: Estender a tabela `auth.users` com metadados específicos da aplicação, principalmente para controle de acesso.
-    -   **Campos Relevantes**:
-        -   `id` (PK, FK para `auth.users.id`): Garante uma relação 1-para-1 com a tabela de usuários.
-        -   `tipo_usuario` (TEXT): Campo crítico que armazena o papel do usuário (`'admin'` ou `'integrador'`). As políticas de RLS se baseiam neste campo para decidir quem pode ver o quê. Por exemplo: `SELECT` em `integradores` só é permitido para `tipo_usuario = 'admin'`.
+    -   **Propósito**: Estende a tabela `auth.users` com dados específicos da aplicação.
+    -   **Colunas**: `id` (PK), `tipo_usuario` (TEXT), `nome` (TEXT), `avatar_url` (TEXT).
+    -   **Relacionamento**: `profiles.id` → `auth.users.id` (Um-para-Um).
+
+### 3.2. Entidades Principais
 
 -   **`public.integradores`**
-    -   **Propósito**: Tabela central que armazena todas as informações comerciais e de status dos parceiros integradores.
-    -   **Campos Relevantes**:
-        -   `id` (PK, UUID): Identificador único para cada registro de integrador.
-        -   `user_id` (FK para `auth.users.id`): Vínculo essencial que conecta a empresa ao usuário que a cadastrou.
-        -   `nome_empresa`, `email`, `cnpj`, etc.: Dados cadastrais da empresa.
-        -   `status` (TEXT): Campo vital que define o estado do integrador no fluxo de trabalho (`'pendente'`, `'aprovado'`, `'rejeitado'`). A lógica de aprovação e acesso se baseia diretamente neste campo.
-        -   `created_at` (TIMESTAMPTZ): Timestamp automático que registra quando o cadastro foi criado, útil para ordenação e relatórios.
+    -   **Propósito**: Tabela central com os dados cadastrais das empresas parceiras.
+    -   **Colunas**: `id` (PK), `user_id` (FK), `nome_empresa`, `cnpj`, `email`, `telefone`, `endereco`, `status` (TEXT: 'pendente', 'aprovado', 'rejeitado'), `created_at`.
+    -   **Relacionamento**: `integradores.user_id` → `auth.users.id`.
 
-## Próximas Tarefas
+-   **`public.propostas`**
+    -   **Propósito**: Armazena as propostas comerciais criadas pelos integradores.
+    -   **Colunas**: `id` (PK), `integrador_id` (FK), `simulacao_id` (FK), `nome_cliente`, `email_cliente`, `telefone_cliente`, `valor_proposta`, `status` (TEXT), `data_validade`.
+    -   **Relacionamentos**: `propostas.integrador_id` → `integradores.id`; `propostas.simulacao_id` → `simulacoes.id`.
 
-- [ ] **Segurança**: Implementar bloqueio de acesso para integradores com status diferente de 'aprovado'.
-- [ ] **Funcionalidade (Kanban)**: Criar a estrutura da nova página de Propostas.
-- [ ] **Banco de Dados (Kanban)**: Criar tabelas `propostas` e `proposta_comentarios` no Supabase.
-- [ ] **UI (Kanban)**: Desenvolver a interface do Kanban com colunas e cards (sem drag-and-drop).
-- [ ] **Funcionalidade (Kanban)**: Implementar a funcionalidade de arrastar e soltar (drag-and-drop) para mover propostas entre colunas.
-- [ ] **Funcionalidade (Kanban)**: Implementar o sistema de comentários dentro dos cards.
-- [ ] **Funcionalidade**: Implementar a função de "Editar" integrador.
-- [ ] **Funcionalidade**: Implementar a página de Kanban para gerenciamento de propostas.
-- [ ] **Banco de Dados**: Realizar limpeza no banco de dados após finalização da aplicação (remover colunas/dados obsoletos).
-- [ ] **Deploy**: Depurar e corrigir configuração de SMTP (Supabase + Resend) para envio de e-mails transacionais.
+-   **`public.projetos_integrador`**
+    -   **Propósito**: Armazena documentos de projetos executivos.
+    -   **Colunas**: `id` (PK), `integrador_id` (FK), `proposta_id` (FK), `art_url`, `memorial_descritivo_url`, `outros_documentos_url`.
+    -   **Relacionamento**: `projetos_integrador.integrador_id` → `integradores.id`.
 
-## Tarefas Concluídas
+### 3.3. Módulos de Suporte
 
-- [x] **Refatoração**: Remover menu, rota e componente 'Integradores Pendentes' que se tornaram obsoletos.
-- [x] **Correção**: Corrigir busca de dados (tabela e título) na página de Gerenciamento de Integradores.
-- [x] **Correção**: Solucionar erro de tipagem do TypeScript na página de integradores.
-- [x] **Correção**: Separar listagem de integradores por status (Pendentes, Aprovados, Rejeitados) na página de gerenciamento.
+-   **`public.proposta_comentarios`**
+    -   **Propósito**: Guarda o histórico de comentários em uma proposta.
+    -   **Colunas**: `id` (PK), `proposta_id` (FK), `user_id` (FK), `comentario` (TEXT).
+    -   **Relacionamentos**: `proposta_comentarios.proposta_id` → `propostas.id`; `proposta_comentarios.user_id` → `auth.users.id`.
 
-- [x] Implementar fluxo de autenticação (Login, Cadastro).
-- [x] Implementar fluxo de recuperação de senha (Forgot/Reset Password).
-- [x] Criar estrutura de layout para a área administrativa (Sidebar, Header).
-- [x] Implementar Dashboard inicial do Admin.
-- [x] Implementar listagem de integradores recentes no Dashboard.
-- [x] Implementar página completa de gerenciamento de integradores (Listar, Filtrar, Aprovar, Reprovar).
-- [x] Criar e aplicar políticas RLS para segurança de dados de admins e integradores.
-- [x] **UI**: Corrigir alinhamento do título e adicionar ícone na página de "Gerenciamento de Integradores".
+-   **`public.simulacoes`**
+    -   **Propósito**: Armazena os dados de entrada para uma simulação de sistema.
+    -   **Colunas**: `id` (PK), `integrador_id` (FK), `consumo_medio_kwh`, `tipo_telhado`, `cep`.
+    -   **Relacionamento**: `simulacoes.integrador_id` → `integradores.id`.
+
+-   **`public.simulacao_equipamentos` e `public.simulacao_resultados`**
+    -   **Propósito**: Detalham os equipamentos usados e os resultados de uma simulação.
+    -   **Relacionamento**: Ambas se conectam a `simulacoes.id`.
+
+-   **`public.kits_referencia`**
+    -   **Propósito**: Tabela de consulta com configurações de kits pré-definidos para agilizar simulações.
+    -   **Colunas**: `id` (PK), `conta_energia`, `potencia_sistema`, `qtd_modulos`, `valor_kit`.
+
+## 4. Plano de Ação (Próximas Tarefas)
+
+Esta seção centraliza todas as tarefas e melhorias planejadas para a plataforma.
+
+### 4.1. Segurança e Acesso
+- [ ] **Segurança**: Implementar bloqueio de acesso para integradores com status `'pendente'` ou `'rejeitado'`. 
+- [ ] **Segurança**: Auditar todas as políticas de Row Level Security para garantir que não haja brechas de acesso.
+- [ ] **Notificações**: Configurar o serviço de SMTP (ex: Resend) para notificar integradores sobre a mudança de status.
+
+### 4.2. Funcionalidades e UX
+- [ ] **Funcionalidade**: Implementar a função de "Editar" integrador para administradores.
+- [ ] **Funcionalidade**: Criar um painel inicial (Dashboard) para o integrador com resumos e notificações.
+- [ ] **UX**: Adicionar filtros e busca avançada nas páginas de gerenciamento (integradores, propostas).
+- [ ] **UX**: Melhorar a interface de upload de arquivos, mostrando progresso e status.
+- [ ] **Funcionalidade (Kanban)**: Desenvolver a interface do Kanban de propostas (colunas e cards).
+- [ ] **Funcionalidade (Kanban)**: Implementar a funcionalidade de arrastar e soltar (drag-and-drop) no Kanban.
+- [ ] **Funcionalidade (Kanban)**: Implementar o sistema de comentários dentro dos cards de proposta.
+
+### 4.3. Código e Manutenção
+- [ ] **Código**: Reforçar a tipagem estrita, eliminando o uso de `any` e utilizando os tipos do Supabase.
+- [ ] **Código**: Centralizar chamadas ao Supabase em hooks específicos (ex: `useIntegradores`) para encapsular a lógica de dados.
+- [ ] **Código**: Padronizar o tratamento de erros das chamadas à API com mensagens claras ao usuário.
+- [ ] **Manutenção**: Criar rotinas ou scripts para limpar dados de teste dos ambientes.
