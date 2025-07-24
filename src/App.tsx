@@ -5,12 +5,14 @@ import { Toaster } from 'sonner';
 import AdminLayout from '@/components/AdminLayout';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { AuthProvider } from '@/contexts/AuthContext';
+import AuthFlowLayout from '@/components/AuthFlowLayout'; // Importa o novo layout
 
 // Public Pages
-import Login from '@/pages/Login';
-import Register from '@/pages/Register';
+import AuthPage from '@/pages/AuthPage'; // Nova página unificada
+import Register from '@/pages/Register'; // Será a página de 'Completar Cadastro'
 import ForgotPassword from '@/pages/ForgotPassword';
 import ResetPassword from '@/pages/ResetPassword';
+import AwaitingApproval from '@/pages/AwaitingApproval';
 
 // Admin Pages
 import Dashboard from '@/pages/admin/Dashboard';
@@ -34,14 +36,22 @@ const App = () => {
         <Toaster richColors position="top-right" />
         <Routes>
           {/* Public Routes */}
-          <Route path="/" element={<Navigate to="/login" replace />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
+          <Route path="/" element={<Navigate to="/auth" replace />} />
+          <Route path="/auth" element={<AuthPage />} />
+          <Route path="/login" element={<Navigate to="/auth" replace />} />
+          <Route path="/register" element={<Navigate to="/auth" replace />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
 
-          {/* Protected Admin Routes */}
+          {/* Status Pages - Accessible only when logged in, but not the final destination */}
+          <Route element={<AuthFlowLayout />}>
+            <Route path="/complete-profile" element={<Register />} />
+            <Route path="/awaiting-approval" element={<AwaitingApproval />} />
+          </Route>
+
+          {/* Main Protected Routes (Dashboards) */}
           <Route element={<ProtectedRoute />}>
+            {/* Admin Routes */}
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<Navigate to="/admin/dashboard" replace />} />
               <Route path="dashboard" element={<Dashboard />} />
@@ -50,10 +60,9 @@ const App = () => {
               <Route path="proposals" element={<ProposalsPage />} />
               <Route path="settings" element={<Settings />} />
             </Route>
-          </Route>
 
-          {/* Protected Integrator Routes */}
-          <Route element={<ProtectedRoute />}>
+            {/* Integrator Routes */}
+            {/* TODO: Consider creating an IntegratorLayout similar to AdminLayout */}
             <Route path="/integrator/dashboard" element={<IntegratorDashboard />} />
             <Route path="/integrator/generate-link" element={<GenerateLink />} />
             <Route path="/integrator/kanban" element={<IntegratorKanban />} />

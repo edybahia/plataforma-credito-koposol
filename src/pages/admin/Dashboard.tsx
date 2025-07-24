@@ -7,77 +7,93 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 const AdminDashboard = () => {
-  const [integradores, setIntegradores] = useState([]);
-  const [totalIntegradores, setTotalIntegradores] = useState(0);
+  const [stats, setStats] = useState({
+    pendentesCadastro: 0,
+    pendentesAprovacao: 0,
+    aprovados: 0,
+  });
+  const [recentesPendentesCadastro, setRecentesPendentesCadastro] = useState([]);
+  const [recentesPendentesAprovacao, setRecentesPendentesAprovacao] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Carregar dados dos integradores do Supabase
   useEffect(() => {
-    const fetchIntegradores = async () => {
+    const fetchDashboardData = async () => {
       try {
-        console.log('Buscando integradores do Supabase...');
+        setLoading(true);
+
+        // Busca as contagens por status
+        const { data: counts, error: countError } = await supabase.rpc('count_integradores_by_status');
+        if (countError) throw countError;
+
+        // Cast para o tipo esperado, já que o SDK não pode inferir o retorno da RPC customizada
+        const typedCounts = counts as { status: string; count: number }[];
         
-        // Buscar dados reais do Supabase
-        const { data, error, count } = await supabase
-          .from('profiles')
-          .select('*', { count: 'exact' });
-        
-        if (error) {
-          throw error;
-        }
-        
-        console.log('Integradores encontrados:', data);
-        
-        // Ordenar por data de criação (mais recentes primeiro)
-        const integradoresOrdenados = data?.sort((a, b) => 
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        ) || [];
-        
-        setIntegradores(integradoresOrdenados);
-        setTotalIntegradores(count || 0);
-        
+        const statusCounts = typedCounts.reduce((acc, item) => {
+          acc[item.status] = item.count;
+          return acc;
+        }, {});
+
+        setStats({
+          pendentesCadastro: statusCounts['pendente_cadastro'] || 0,
+          pendentesAprovacao: statusCounts['pendente_aprovacao'] || 0,
+          aprovados: statusCounts['aprovado'] || 0,
+        });
+
+        // Busca os 5 mais recentes pendentes de cadastro
+        const { data: pendentesCadastroData, error: pendentesCadastroError } = await supabase
+          .from('integradores')
+          .select('id, email, created_at, status')
+          .eq('status', 'pendente_cadastro')
+          .order('created_at', { ascending: false })
+          .limit(5);
+        if (pendentesCadastroError) throw pendentesCadastroError;
+        setRecentesPendentesCadastro(pendentesCadastroData || []);
+
+        // Busca os 5 mais recentes pendentes de aprovação
+        const { data: pendentesAprovacaoData, error: pendentesAprovacaoError } = await supabase
+          .from('integradores')
+          .select('id, nome_empresa, email, created_at, status')
+          .eq('status', 'pendente_aprovacao')
+          .order('created_at', { ascending: false })
+          .limit(5);
+        if (pendentesAprovacaoError) throw pendentesAprovacaoError;
+        setRecentesPendentesAprovacao(pendentesAprovacaoData || []);
+
       } catch (error) {
-        console.error('Erro ao buscar integradores do Supabase:', error);
-        toast.error('Erro ao carregar dados dos integradores');
-        // Em caso de erro, manter o array vazio para não mostrar dados incorretos
-        setIntegradores([]);
-        setTotalIntegradores(0);
+        console.error('Erro ao buscar dados para o dashboard:', error);
+        toast.error('Erro ao carregar dados do dashboard');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchIntegradores();
+    fetchDashboardData();
   }, []);
 
-  const stats = [
+  const statCards = [
     {
-      title: 'Integradores Cadastrados',
-      value: totalIntegradores.toString(),
-      change: '+12%',
-      icon: <Users className="h-6 w-6 text-blue-600" />,
-      description: 'Total de parceiros ativos'
+      title: 'Integradores Aprovados',
+      value: stats.aprovados.toString(),
+      icon: <CheckCircle className="h-6 w-6 text-green-600" />,
+      description: 'Total de parceiros ativos na plataforma'
     },
     {
-      title: 'Propostas Recebidas',
+      title: 'Aguardando Aprovação',
+      value: stats.pendentesAprovacao.toString(),
+      icon: <Clock className="h-6 w-6 text-orange-600" />,
+      description: 'Perfis completos pendentes de análise'
+    },
+    {
+      title: 'Aguardando Cadastro',
+      value: stats.pendentesCadastro.toString(),
+      icon: <Users className="h-6 w-6 text-blue-600" />,
+      description: 'Contas criadas que não completaram o perfil'
+    },
+    {
+      title: 'Propostas Recebidas (Exemplo)',
       value: '156',
-      change: '+8%',
       icon: <FileText className="h-6 w-6 text-purple-600" />,
       description: 'Este mês'
-    },
-    {
-      title: 'Propostas Aprovadas',
-      value: '89',
-      change: '+15%',
-      icon: <CheckCircle className="h-6 w-6 text-green-600" />,
-      description: 'Taxa de aprovação: 57%'
-    },
-    {
-      title: 'Aguardando Análise',
-      value: '23',
-      change: '-5%',
-      icon: <Clock className="h-6 w-6 text-orange-600" />,
-      description: 'Pendentes de revisão'
     }
   ];
 
@@ -101,7 +117,7 @@ const AdminDashboard = () => {
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {stats.map((stat, index) => (
+          {statCards.map((stat, index) => (
             <Card key={index} className="border-0 shadow-md">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-gray-600">
@@ -110,53 +126,72 @@ const AdminDashboard = () => {
                 {stat.icon}
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-gray-900">{stat.value}</div>
-                <div className="flex items-center space-x-2 text-xs">
-                  <span className={`${stat.change.startsWith('+') ? 'text-green-600' : 'text-red-600'}`}>
-                    {stat.change}
-                  </span>
-                  <span className="text-gray-500">vs mês anterior</span>
-                </div>
-                <p className="text-xs text-gray-600 mt-1">{stat.description}</p>
+                <p className="text-2xl font-bold">{stat.value}</p>
+                <p className="text-xs text-gray-500">
+                  {stat.description}
+                </p>
               </CardContent>
             </Card>
           ))}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Recent Integrators */}
+          {/* Recent Integrators - Pending Approval */}
           <Card className="border-0 shadow-md">
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
-                <Users className="h-5 w-5 text-purple-600" />
-                <span>Integradores Cadastrados</span>
+                <Clock className="h-5 w-5 text-orange-600" />
+                <span>Aguardando Aprovação</span>
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 {loading ? (
                   <div className="text-center text-gray-500">Carregando...</div>
-                ) : integradores.length > 0 ? (
-                  integradores.map((integrator, index) => (
-                    <div key={integrator.id || index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                ) : recentesPendentesAprovacao.length > 0 ? (
+                  recentesPendentesAprovacao.map((integrator) => (
+                    <div key={integrator.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                       <div>
                         <p className="font-medium text-gray-900">{integrator.nome_empresa}</p>
-                        <p className="text-sm text-gray-600">
-                          {new Date(integrator.created_at).toLocaleDateString('pt-BR')}
-                        </p>
-                        <p className="text-xs text-gray-500">{integrator.email}</p>
+                        <p className="text-sm text-gray-600">{integrator.email}</p>
                       </div>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        integrator.status === 'aprovado' 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {integrator.status === 'pendente' ? 'Pendente' : 'Aprovado'}
+                      <span className='text-xs text-gray-500'>
+                        {new Date(integrator.created_at).toLocaleDateString('pt-BR')}
                       </span>
                     </div>
                   ))
                 ) : (
-                  <div className="text-center text-gray-500">Nenhum integrador encontrado</div>
+                  <div className="text-center text-gray-500">Nenhum integrador aguardando aprovação.</div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* New Accounts - Pending Profile Completion */}
+          <Card className="border-0 shadow-md">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Users className="h-5 w-5 text-blue-600" />
+                <span>Novos Cadastros (Aguardando Perfil)</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {loading ? (
+                  <div className="text-center text-gray-500">Carregando...</div>
+                ) : recentesPendentesCadastro.length > 0 ? (
+                  recentesPendentesCadastro.map((integrator) => (
+                    <div key={integrator.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div>
+                        <p className="font-medium text-gray-900">{integrator.email}</p>
+                      </div>
+                      <span className='text-xs text-gray-500'>
+                        {new Date(integrator.created_at).toLocaleDateString('pt-BR')}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center text-gray-500">Nenhuma nova conta aguardando cadastro.</div>
                 )}
               </div>
             </CardContent>

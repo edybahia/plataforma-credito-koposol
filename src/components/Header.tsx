@@ -13,6 +13,7 @@ import {
 import { toast } from 'sonner';
 import { Input } from './ui/input';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
 
 interface HeaderProps {
   toggleSidebar: () => void;
@@ -22,11 +23,13 @@ interface HeaderProps {
 const Header: React.FC<HeaderProps> = ({ toggleSidebar, isSidebarCollapsed }) => {
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    // Lógica de logout do Supabase
-    // supabase.auth.signOut();
-    toast.success('Logout realizado com sucesso!');
-    navigate('/login');
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error('Error logging out:', error);
+      toast.error('Erro ao sair. Tente novamente.');
+    }
+    // O onAuthStateChange no AuthContext cuidará do redirecionamento
   };
 
   return (

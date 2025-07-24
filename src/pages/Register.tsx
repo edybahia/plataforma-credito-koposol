@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -14,15 +13,23 @@ import FileUpload from '@/components/FileUpload';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { isValidEmail, normalizeEmail } from '@/utils/validation';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Register = () => {
+  const { user, checkUserAndProfile } = useAuth();
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [consentChecked, setConsentChecked] = useState(false);
-  
-  // Estado para gerenciar os documentos
-  const [documents, setDocuments] = useState({
+
+  useEffect(() => {
+    if (!user) {
+      toast.error('Acesso negado. Por favor, faça login.');
+      navigate('/auth');
+    }
+  }, [user, navigate]);
+
+  const [documents, setDocuments] = useState<Record<string, File | null>>({
     contratoSocial: null,
     comprovanteEndereco: null,
     rgSocios: null,
@@ -31,11 +38,10 @@ const Register = () => {
     fotoFachada: null
   });
 
-  // Estado para os projetos de engenharia
   const [projectsData, setProjectsData] = useState([
-    { nomeCliente: '', potenciaKwp: '', artFile: null, memorialFile: null, outrosFile: null },
-    { nomeCliente: '', potenciaKwp: '', artFile: null, memorialFile: null, outrosFile: null },
-    { nomeCliente: '', potenciaKwp: '', artFile: null, memorialFile: null, outrosFile: null },
+    { nomeCliente: '', potenciaKwp: '', artFile: null as File | null, memorialFile: null as File | null, outrosFile: null as File | null },
+    { nomeCliente: '', potenciaKwp: '', artFile: null as File | null, memorialFile: null as File | null, outrosFile: null as File | null },
+    { nomeCliente: '', potenciaKwp: '', artFile: null as File | null, memorialFile: null as File | null, outrosFile: null as File | null },
   ]);
 
   const handleProjectDataChange = (index: number, field: string, value: any) => {
@@ -44,12 +50,9 @@ const Register = () => {
     setProjectsData(updatedProjects);
   };
 
-  // Form data state
   const [companyData, setCompanyData] = useState({
     companyName: '',
     cnpj: '',
-    companyEmail: '',
-    confirmEmail: '',
     cep: '',
     street: '',
     number: '',
@@ -70,9 +73,7 @@ const Register = () => {
     fullName: '',
     cpf: '',
     phone: '',
-    email: '',
-    password: '',
-    confirmPassword: ''
+    email: user?.email || '',
   });
 
   const steps = [
@@ -82,313 +83,145 @@ const Register = () => {
     { number: 4, title: 'Projetos de Engenharia', icon: <Wrench className="h-5 w-5" /> }
   ];
 
-  // Estados brasileiros
   const brazilStates = [
-    { code: 'SP', name: 'São Paulo' },
-    { code: 'RJ', name: 'Rio de Janeiro' },
-    { code: 'MG', name: 'Minas Gerais' },
+    { code: 'AC', name: 'Acre' },
+    { code: 'AL', name: 'Alagoas' },
+    { code: 'AP', name: 'Amapá' },
+    { code: 'AM', name: 'Amazonas' },
     { code: 'BA', name: 'Bahia' },
-    { code: 'PR', name: 'Paraná' },
-    { code: 'RS', name: 'Rio Grande do Sul' },
-    { code: 'PE', name: 'Pernambuco' },
     { code: 'CE', name: 'Ceará' },
-    { code: 'PA', name: 'Pará' },
-    { code: 'SC', name: 'Santa Catarina' },
+    { code: 'DF', name: 'Distrito Federal' },
+    { code: 'ES', name: 'Espírito Santo' },
     { code: 'GO', name: 'Goiás' },
     { code: 'MA', name: 'Maranhão' },
-    { code: 'ES', name: 'Espírito Santo' },
-    { code: 'PB', name: 'Paraíba' },
-    { code: 'AL', name: 'Alagoas' },
     { code: 'MT', name: 'Mato Grosso' },
     { code: 'MS', name: 'Mato Grosso do Sul' },
-    { code: 'DF', name: 'Distrito Federal' },
-    { code: 'SE', name: 'Sergipe' },
-    { code: 'AM', name: 'Amazonas' },
-    { code: 'RO', name: 'Rondônia' },
-    { code: 'AC', name: 'Acre' },
-    { code: 'AP', name: 'Amapá' },
-    { code: 'RR', name: 'Roraima' },
-    { code: 'TO', name: 'Tocantins' },
+    { code: 'MG', name: 'Minas Gerais' },
+    { code: 'PA', name: 'Pará' },
+    { code: 'PB', name: 'Paraíba' },
+    { code: 'PR', name: 'Paraná' },
+    { code: 'PE', name: 'Pernambuco' },
     { code: 'PI', name: 'Piauí' },
-    { code: 'RN', name: 'Rio Grande do Norte' }
+    { code: 'RJ', name: 'Rio de Janeiro' },
+    { code: 'RN', name: 'Rio Grande do Norte' },
+    { code: 'RS', name: 'Rio Grande do Sul' },
+    { code: 'RO', name: 'Rondônia' },
+    { code: 'RR', name: 'Roraima' },
+    { code: 'SC', name: 'Santa Catarina' },
+    { code: 'SP', name: 'São Paulo' },
+    { code: 'SE', name: 'Sergipe' },
+    { code: 'TO', name: 'Tocantins' }
   ];
 
   const citiesByState: { [key: string]: string[] } = {
     'SP': ['São Paulo', 'Campinas', 'Santos', 'Ribeirão Preto', 'Sorocaba'],
     'RJ': ['Rio de Janeiro', 'Niterói', 'Duque de Caxias', 'Nova Iguaçu', 'Petrópolis'],
-    'MG': ['Belo Horizonte', 'Uberlândia', 'Contagem', 'Juiz de Fora', 'Betim'],
-    'BA': ['Salvador', 'Feira de Santana', 'Vitória da Conquista', 'Camaçari', 'Itabuna'],
-    'PR': ['Curitiba', 'Londrina', 'Maringá', 'Ponta Grossa', 'Cascavel'],
-    'RS': ['Porto Alegre', 'Caxias do Sul', 'Pelotas', 'Canoas', 'Santa Maria'],
-    'PE': ['Recife', 'Jaboatão dos Guararapes', 'Olinda', 'Caruaru', 'Petrolina'],
-    'CE': ['Fortaleza', 'Caucaia', 'Juazeiro do Norte', 'Maracanaú', 'Sobral'],
-    'PA': ['Belém', 'Ananindeua', 'Santarém', 'Marabá', 'Parauapebas'],
-    'SC': ['Florianópolis', 'Joinville', 'Blumenau', 'São José', 'Criciúma'],
-    'GO': ['Goiânia', 'Aparecida de Goiânia', 'Anápolis', 'Rio Verde', 'Águas Lindas'],
-    'MA': ['São Luís', 'Imperatriz', 'Timon', 'Caxias', 'Codó'],
-    'ES': ['Vitória', 'Vila Velha', 'Cariacica', 'Serra', 'Cachoeiro de Itapemirim'],
-    'PB': ['João Pessoa', 'Campina Grande', 'Santa Rita', 'Patos', 'Bayeux'],
-    'AL': ['Maceió', 'Arapiraca', 'Palmeira dos Índios', 'Rio Largo', 'Penedo'],
-    'MT': ['Cuiabá', 'Várzea Grande', 'Rondonópolis', 'Sinop', 'Tangará da Serra'],
-    'MS': ['Campo Grande', 'Dourados', 'Três Lagoas', 'Corumbá', 'Ponta Porã'],
-    'DF': ['Brasília', 'Taguatinga', 'Ceilândia', 'Samambaia', 'Planaltina'],
-    'SE': ['Aracaju', 'Nossa Senhora do Socorro', 'Lagarto', 'Itabaiana', 'Estância'],
-    'AM': ['Manaus', 'Parintins', 'Itacoatiara', 'Manacapuru', 'Coari'],
-    'RO': ['Porto Velho', 'Ji-Paraná', 'Ariquemes', 'Vilhena', 'Cacoal'],
-    'AC': ['Rio Branco', 'Cruzeiro do Sul', 'Sena Madureira', 'Tarauacá', 'Feijó'],
-    'AP': ['Macapá', 'Santana', 'Laranjal do Jari', 'Oiapoque', 'Mazagão'],
-    'RR': ['Boa Vista', 'Rorainópolis', 'Caracaraí', 'Alto Alegre', 'Mucajaí'],
-    'TO': ['Palmas', 'Araguaína', 'Gurupi', 'Porto Nacional', 'Paraíso do Tocantins'],
-    'PI': ['Teresina', 'Parnaíba', 'Picos', 'Piripiri', 'Floriano'],
-    'RN': ['Natal', 'Mossoró', 'Parnamirim', 'São Gonçalo do Amarante', 'Macaíba']
+    // Adicionar outras cidades conforme necessário
   };
 
-  // Validation functions
-  // Validações restauradas para campos obrigatórios
   const validateStep1 = () => {
-    if (!companyData.companyName) {
-      toast.error('Por favor, informe o nome da empresa.');
-      return false;
-    }
-    if (!companyData.cnpj || companyData.cnpj.length < 14) {
-      toast.error('Por favor, informe um CNPJ válido.');
-      return false;
-    }
-    if (!companyData.companyEmail) {
-      toast.error('Por favor, informe o e-mail da empresa.');
-      return false;
-    }
-    if (companyData.companyEmail !== companyData.confirmEmail) {
-      toast.error('Os e-mails informados não coincidem.');
-      return false;
-    }
-    if (!companyData.cep) {
-      toast.error('Por favor, informe o CEP.');
-      return false;
-    }
-    if (!companyData.street) {
-      toast.error('Por favor, informe a rua/avenida.');
-      return false;
-    }
-    if (!companyData.number) {
-      toast.error('Por favor, informe o número do endereço.');
-      return false;
-    }
-    if (!companyData.state) {
-      toast.error('Por favor, selecione o estado.');
-      return false;
-    }
-    if (!companyData.city) {
-      toast.error('Por favor, selecione a cidade.');
-      return false;
-    }
-    if (!companyData.neighborhood) {
-      toast.error('Por favor, informe o bairro.');
-      return false;
-    }
-    if (!companyData.phone || companyData.phone.length < 10) {
-      toast.error('Por favor, informe um telefone válido.');
+    const { companyName, cnpj, cep, street, number, neighborhood, phone, teamSize, revenue, hasInstallation, howKnewUs, averageProjects, creditIssues } = companyData;
+    if (!companyName || !cnpj || !cep || !street || !number || !neighborhood || !phone || !teamSize || !revenue || !hasInstallation || !howKnewUs || !averageProjects || !creditIssues) {
+      toast.error('Por favor, preencha todos os campos obrigatórios.');
       return false;
     }
     return true;
   };
 
   const validateStep2 = () => {
-    if (!ownerData.fullName) {
-      toast.error('Por favor, informe o nome completo do titular.');
-      return false;
+    const requiredFields = ['fullName', 'cpf', 'phone', 'email'];
+    for (const field of requiredFields) {
+      if (!ownerData[field as keyof typeof ownerData]) {
+        toast.error(`Por favor, preencha o campo: ${getFieldLabel(field)}`);
+        return false;
+      }
     }
-    if (!ownerData.cpf || ownerData.cpf.length < 11) {
-      toast.error('Por favor, informe um CPF válido.');
-      return false;
+    if (ownerData.cpf.replace(/\D/g, '').length !== 11) {
+        toast.error('CPF inválido.');
+        return false;
     }
-    if (!ownerData.phone || ownerData.phone.length < 10) {
-      toast.error('Por favor, informe um telefone válido.');
-      return false;
-    }
-    if (!ownerData.email) {
-      toast.error('Por favor, informe o e-mail do titular.');
-      return false;
-    }
-    if (!ownerData.password) {
-      toast.error('Por favor, defina uma senha.');
-      return false;
-    }
-    if (ownerData.password !== ownerData.confirmPassword) {
-      toast.error('As senhas informadas não coincidem.');
-      return false;
-    }
-    if (ownerData.password.length < 6) {
-      toast.error('A senha deve ter pelo menos 6 caracteres.');
-      return false;
+    if (!isValidEmail(ownerData.email)) {
+        toast.error('O e-mail do titular é inválido.');
+        return false;
     }
     return true;
   };
 
   const validateStep3 = () => {
-    // Verificar se pelo menos um documento foi anexado
-    const temContratoSocial = !!documents.contratoSocial;
-    const temComprovanteEndereco = !!documents.comprovanteEndereco;
-    const temRgSocios = !!documents.rgSocios;
-    const temCnhSocios = !!documents.cnhSocios;
-    const temDadosBancarios = !!documents.dadosBancarios;
-    const temFotoFachada = !!documents.fotoFachada;
-    
-    if (!temContratoSocial) {
-      toast.error('Por favor, anexe o Contrato Social.');
-      return false;
-    }
-    
-    if (!temComprovanteEndereco) {
-      toast.error('Por favor, anexe o Comprovante de Endereço.');
-      return false;
-    }
-    
-    if (!temRgSocios && !temCnhSocios) {
-      toast.error('Por favor, anexe o RG ou CNH dos sócios.');
-      return false;
-    }
-    
-    if (!temDadosBancarios) {
-      toast.error('Por favor, anexe os Dados Bancários.');
-      return false;
-    }
-    
-    if (!temFotoFachada) {
-      toast.error('Por favor, anexe a Foto da Fachada.');
-      return false;
-    }
-    
-    console.log('Validação da etapa 3 (documentos): OK - documentos obrigatórios verificados');
+    if (!documents.contratoSocial) { toast.error('Anexe o Contrato Social.'); return false; }
+    if (!documents.comprovanteEndereco) { toast.error('Anexe o Comprovante de Endereço.'); return false; }
+    if (!documents.rgSocios && !documents.cnhSocios) { toast.error('Anexe o RG ou CNH dos sócios.'); return false; }
+    if (!documents.dadosBancarios) { toast.error('Anexe os Dados Bancários.'); return false; }
+    if (!documents.fotoFachada) { toast.error('Anexe a Foto da Fachada.'); return false; }
     return true;
   };
-  
+
   const validateStep4 = () => {
     if (!consentChecked) {
       toast.error('Por favor, autorize a Koposol a realizar as devidas consultas.');
       return false;
     }
-    console.log('Validação da etapa 4 (consentimento): OK');
     return true;
   };
 
   const getFieldLabel = (field: string) => {
     const labels: { [key: string]: string } = {
-      companyName: 'Nome da Empresa',
-      cnpj: 'CNPJ',
-      companyEmail: 'E-mail da Empresa',
-      confirmEmail: 'Confirmação de E-mail',
-      cep: 'CEP',
-      street: 'Rua/Avenida',
-      number: 'Número',
-      state: 'Estado',
-      city: 'Cidade',
-      neighborhood: 'Bairro',
-      phone: 'Telefone',
-      teamSize: 'Tamanho da Equipe',
-      revenue: 'Faturamento',
-      hasInstallation: 'Equipe de Instalação',
-      howKnewUs: 'Como Conheceu a Koposol',
-      fullName: 'Nome Completo',
-      cpf: 'CPF',
-      email: 'E-mail',
-      password: 'Senha',
-      confirmPassword: 'Confirmação de Senha'
+      companyName: 'Nome da Empresa', cnpj: 'CNPJ', 
+      cep: 'CEP', street: 'Rua/Avenida',
+      number: 'Número', neighborhood: 'Bairro',
+      phone: 'Telefone', teamSize: 'Tamanho da Equipe', revenue: 'Faturamento',
+      hasInstallation: 'Equipe de Instalação', howKnewUs: 'Como Conheceu a Koposol',
+      fullName: 'Nome Completo', cpf: 'CPF', email: 'E-mail',
+      contratoSocial: 'Contrato Social', comprovanteEndereco: 'Comprovante de Endereço',
+      rgSocios: 'RG dos Sócios', cnhSocios: 'CNH dos Sócios',
+      dadosBancarios: 'Dados Bancários', fotoFachada: 'Foto da Fachada'
     };
     return labels[field] || field;
   };
 
-  // Função para buscar dados do CEP usando a API ViaCEP
-  const buscarCep = async (cep: string) => {
-    // Remover caracteres não numéricos
-    const cepLimpo = cep.replace(/\D/g, '');
-    
-    if (cepLimpo.length !== 8) {
+  const buscarCep = async (cepValue: string) => {
+    const cep = cepValue.replace(/\D/g, '');
+    if (cep.length !== 8) {
       return;
     }
-    
+
+    setIsLoading(true);
     try {
-      console.log(`Buscando CEP: ${cepLimpo}`);
-      const response = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
+      const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
       const data = await response.json();
-      console.log('Resposta da API ViaCEP:', data);
-      
-      if (!data.erro) {
-        // Atualizar os campos do formulário com os dados retornados
-        setCompanyData(prev => ({
-          ...prev,
-          cep: data.cep || prev.cep,
-          street: data.logradouro || prev.street,
-          complement: data.complemento || prev.complement,
-          neighborhood: data.bairro || prev.neighborhood,
-          city: data.localidade || prev.city,
-          state: data.estado || data.uf || prev.state
-        }));
-        
-        console.log('Dados atualizados:', {
-          cep: data.cep,
-          street: data.logradouro,
-          complement: data.complemento,
-          neighborhood: data.bairro,
-          city: data.localidade,
-          state: data.estado || data.uf
-        });
-        
-        toast.success('Endereço preenchido automaticamente!');
-      } else {
-        console.error('CEP não encontrado');
-        toast.error('CEP não encontrado. Por favor, verifique o CEP informado.');
+
+      if (data.erro) {
+        toast.error('CEP não encontrado.');
+        return;
       }
+
+      setCompanyData(prevData => ({
+        ...prevData,
+        street: data.logradouro,
+        neighborhood: data.bairro,
+        city: data.localidade,
+        state: data.uf,
+        complement: data.complemento
+      }));
+
+      toast.success('Endereço preenchido automaticamente!');
     } catch (error) {
       console.error('Erro ao buscar CEP:', error);
-      toast.error('Erro ao buscar o CEP. Por favor, tente novamente.');
+      toast.error('Ocorreu um erro ao buscar o CEP. Tente novamente.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleNext = () => {
-    console.log('Tentando avançar para a próxima etapa:', currentStep + 1);
-    
-    // Validação por etapa
-    if (currentStep === 1 && !validateStep1()) {
-      console.log('Validação da etapa 1 falhou');
-      return;
-    }
-    if (currentStep === 2 && !validateStep2()) {
-      console.log('Validação da etapa 2 falhou');
-      return;
-    }
-    if (currentStep === 3 && !validateStep3()) {
-      console.log('Validação da etapa 3 falhou');
-      return;
-    }
-    
-    console.log('Validação passou, avançando para a próxima etapa');
-    if (currentStep < steps.length) {
-      setCurrentStep(currentStep + 1);
-    } else {
-      console.log('Última etapa, enviando formulário');
-      // Corrigindo o erro de tipagem
-      handleSubmit({ preventDefault: () => {} } as React.FormEvent);
-    }
-  };
-
-  const handlePrev = () => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1);
-    }
-  };
-
-  // Função auxiliar para upload de arquivo
-  const uploadFile = async (file: File | null, path: string) => {
+  const uploadFile = async (file: File | null, path: string): Promise<string | null> => {
     if (!file) return null;
     const { data, error } = await supabase.storage
       .from('documentos-integradores')
       .upload(path, file);
-
     if (error) {
-      throw new Error(`Erro no upload do arquivo ${file.name}: ${error.message}`);
+      console.error('Erro no upload:', error.message);
+      throw new Error(`Falha no upload do arquivo: ${file.name}`);
     }
-
     const { data: { publicUrl } } = supabase.storage
       .from('documentos-integradores')
       .getPublicUrl(data.path);
@@ -398,686 +231,214 @@ const Register = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validateStep4()) return;
     setIsLoading(true);
 
-    if (!validateStep1() || !validateStep2() || !validateStep3() || !validateStep4()) {
-      toast.error('Por favor, preencha todos os campos obrigatórios corretamente.');
-      setIsLoading(false);
-      return;
-    }
-
     try {
-      // 1. Criar usuário no Supabase Auth
-      const { data: { user }, error: authError } = await supabase.auth.signUp({
-        email: ownerData.email,
-        password: ownerData.password,
-      });
+      if (!user) throw new Error('Usuário não autenticado.');
 
-      if (authError) throw new Error(`Erro de autenticação: ${authError.message}`);
-      if (!user) throw new Error('Usuário não foi criado.');
+      const documentUrls: Record<string, string> = {};
+      for (const key in documents) {
+        const file = documents[key as keyof typeof documents];
+        if (file) {
+          const path = `${user.id}/${key}_${Date.now()}`;
+          const url = await uploadFile(file, path);
+          if (url) documentUrls[key] = url;
+        }
+      }
 
-      const userId = user.id;
-      const timestamp = new Date().getTime();
-
-      // 2. Fazer upload de todos os arquivos
-      const fileUploadPromises = [];
-
-      // Documentos da Etapa 3
-      const docMappings: { [key: string]: string } = {
-        contratoSocial: 'contrato_social_url',
-        comprovanteEndereco: 'comprovante_endereco_url',
-        rgSocios: 'rg_socio_url',
-        cnhSocios: 'cnh_socio_url',
-        dadosBancarios: 'comprovante_bancario_url',
-        fotoFachada: 'foto_fachada_url',
+      const updateData = {
+        nome_empresa: companyData.companyName,
+        cnpj: companyData.cnpj,
+        cep: companyData.cep,
+        street: companyData.street,
+        number: companyData.number,
+        complement: companyData.complement,
+        state: companyData.state,
+        city: companyData.city,
+        neighborhood: companyData.neighborhood,
+        telefone: companyData.phone,
+        owner_name: ownerData.fullName,
+        owner_cpf: ownerData.cpf,
+        owner_phone: ownerData.phone,
+        owner_email: ownerData.email,
+        contrato_social_url: documentUrls.contratoSocial,
+        comprovante_endereco_url: documentUrls.comprovanteEndereco,
+        rg_socios_url: documentUrls.rgSocios,
+        cnh_socios_url: documentUrls.cnhSocios,
+        dados_bancarios_url: documentUrls.dadosBancarios,
+        foto_fachada_url: documentUrls.fotoFachada,
+        status: 'pendente_documentacao',
+        updated_at: new Date().toISOString(),
       };
 
-      for (const [key, file] of Object.entries(documents)) {
-        if (file) {
-          const path = `${userId}/documentos_empresa/${key}_${timestamp}_${(file as File).name}`;
-          fileUploadPromises.push(uploadFile(file as File, path).then(url => ({ dbKey: docMappings[key], url })));
-        }
-      }
-
-      // Documentos dos Projetos (Etapa 4)
-      projectsData.forEach((project, index) => {
-        if (project.artFile) {
-          const path = `${userId}/projetos/${index}/art_${timestamp}_${(project.artFile as File).name}`;
-          fileUploadPromises.push(uploadFile(project.artFile, path).then(url => ({ dbKey: `project_${index}_art`, url })));
-        }
-        if (project.memorialFile) {
-          const path = `${userId}/projetos/${index}/memorial_${timestamp}_${(project.memorialFile as File).name}`;
-          fileUploadPromises.push(uploadFile(project.memorialFile, path).then(url => ({ dbKey: `project_${index}_memorial`, url })));
-        }
-        if (project.outrosFile) {
-          const path = `${userId}/projetos/${index}/outros_${timestamp}_${(project.outrosFile as File).name}`;
-          fileUploadPromises.push(uploadFile(project.outrosFile, path).then(url => ({ dbKey: `project_${index}_outros`, url })));
-        }
-      });
-
-      const uploadedFiles = await Promise.all(fileUploadPromises);
-      
-      const allUrls: { [key: string]: string | null } = uploadedFiles.reduce((acc: any, { dbKey, url }) => {
-        if (dbKey) acc[dbKey] = url;
-        return acc;
-      }, {});
-
-      const integradorDocumentUrls = Object.keys(allUrls)
-        .filter(key => !key.startsWith('project_'))
-        .reduce((obj, key) => {
-          obj[key] = allUrls[key];
-          return obj;
-        }, {} as { [key: string]: string | null });
-
-      // 3. Inserir dados na tabela 'integradores'
-      const { data: integradorData, error: integradorError } = await supabase
+      const { error: updateError } = await supabase
         .from('integradores')
-        .insert([{
-          user_id: userId,
-          nome_empresa: companyData.companyName,
-          cnpj: companyData.cnpj,
-          email: companyData.companyEmail,
-          cep: companyData.cep,
-          logradouro: companyData.street,
-          numero: companyData.number,
-          complemento: companyData.complement,
-          estado: companyData.state,
-          cidade: companyData.city,
-          bairro: companyData.neighborhood,
-          telefone: companyData.phone,
-          tamanho_equipe: companyData.teamSize,
-          faturamento_medio: companyData.revenue,
-          possui_equipe_instalacao: companyData.hasInstallation,
-          como_conheceu: companyData.howKnewUs,
-          media_projetos_mes: companyData.averageProjects,
-          problemas_credito: companyData.creditIssues,
-          status: 'pendente',
-          ...integradorDocumentUrls, // Adiciona apenas as URLs dos documentos da empresa
-        }])
-        .select('id')
-        .single();
+        .update(updateData)
+        .eq('user_id', user.id);
 
-      if (integradorError) throw new Error(`Erro ao salvar integrador: ${integradorError.message}`);
-      if (!integradorData) throw new Error('Não foi possível obter o ID do integrador criado.');
-      const integradorId = integradorData.id;
+      if (updateError) throw updateError;
 
-      // 4. Inserir dados dos projetos
-      const projetosParaInserir = projectsData
-        .filter(p => p.nomeCliente || p.potenciaKwp || p.artFile || p.memorialFile || p.outrosFile)
-        .map((p, index) => ({
-          integrador_id: integradorId,
-          nome_cliente: p.nomeCliente,
-          potencia_kwp: p.potenciaKwp,
-          art_url: urls[`project_${index}_art`],
-          memorial_descritivo_url: urls[`project_${index}_memorial`],
-          outros_documentos_url: urls[`project_${index}_outros`],
-        }));
+      const projectsToInsert = projectsData
+        .filter(p => p.nomeCliente && p.potenciaKwp)
+        .map(async (p) => {
+          const artUrl = p.artFile ? await uploadFile(p.artFile, `${user.id}/projects/${p.nomeCliente}_art_${Date.now()}`) : null;
+          const memorialUrl = p.memorialFile ? await uploadFile(p.memorialFile, `${user.id}/projects/${p.nomeCliente}_memorial_${Date.now()}`) : null;
+          const outrosUrl = p.outrosFile ? await uploadFile(p.outrosFile, `${user.id}/projects/${p.nomeCliente}_outros_${Date.now()}`) : null;
+          return {
+            integrador_id: user.id,
+            nome_cliente: p.nomeCliente,
+            potencia_kwp: parseFloat(p.potenciaKwp) || 0,
+            art_url: artUrl,
+            orcamento_conexao_url: memorialUrl, // Mapeando memorial para orçamento de conexão
+            outros_documentos_url: outrosUrl,
+          };
+        });
 
-      if (projetosParaInserir.length > 0) {
-        const { error: projetosError } = await supabase.from('projetos_integrador').insert(projetosParaInserir);
-        if (projetosError) throw new Error(`Erro ao salvar projetos: ${projetosError.message}`);
+      const resolvedProjects = await Promise.all(projectsToInsert);
+      if (resolvedProjects.length > 0) {
+                const { error: projectsError } = await supabase.from('projetos_integrador').insert(resolvedProjects);
+        if (projectsError) {
+          toast.info('Dados principais salvos, mas houve um erro ao salvar os projetos.');
+        }
       }
 
-      // 5. Inserir dados na tabela 'profiles'
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert([{ id: userId, tipo_usuario: 'integrador' }]);
+      // Após salvar, força a re-verificação do perfil para atualizar o contexto
+      await checkUserAndProfile();
 
-      if (profileError) throw new Error(`Erro ao criar perfil: ${profileError.message}`);
+      toast.success('Cadastro enviado com sucesso! Você será redirecionado em breve.');
 
-      toast.success('Cadastro realizado com sucesso! Sua solicitação foi enviada para análise.');
-      navigate('/login');
-
-    } catch (error: any) {
-      console.error('Erro no cadastro:', error);
-      toast.error(`Falha no cadastro: ${error.message}`);
+      // O redirecionamento será tratado pelo ProtectedRoute agora que o contexto foi atualizado
+    } catch (error) {
+      toast.error(`Erro ao finalizar cadastro: ${error.message}`);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const StepIndicator = () => (
-    <div className="flex items-center justify-center space-x-4 mb-8">
-      {steps.map((step, index) => (
-        <div key={step.number} className="flex items-center">
-          <div className={`flex items-center justify-center w-10 h-10 rounded-full border-2 ${
-            currentStep >= step.number 
-              ? 'bg-primary border-primary text-white' 
-              : 'border-gray-300 text-gray-400'
-          }`}>
-            {step.icon}
-          </div>
-          {index < steps.length - 1 && (
-            <div className={`w-16 h-0.5 mx-2 ${
-              currentStep > step.number ? 'bg-primary' : 'bg-gray-300'
-            }`} />
-          )}
-        </div>
-      ))}
-    </div>
-  );
-
-  const renderStepContent = () => {
-    switch (currentStep) {
-      case 1:
-        return (
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Dados da Empresa</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="companyName">Nome da Empresa *</Label>
-                <Input
-                  id="companyName"
-                  value={companyData.companyName}
-                  onChange={(e) => setCompanyData({...companyData, companyName: e.target.value})}
-                  placeholder="Nome da empresa"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="cnpj">CNPJ *</Label>
-                <MaskedInput
-                  id="cnpj"
-                  type="cnpj"
-                  value={companyData.cnpj}
-                  onChange={(value) => setCompanyData({...companyData, cnpj: value})}
-                  placeholder="00.000.000/0000-00"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="companyEmail">E-mail da Empresa *</Label>
-                <Input
-                  id="companyEmail"
-                  type="email"
-                  value={companyData.companyEmail}
-                  onChange={(e) => setCompanyData({...companyData, companyEmail: e.target.value})}
-                  placeholder="empresa@email.com"
-                  required
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Este e-mail será usado para login no sistema
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="confirmEmail">Confirmar E-mail da Empresa *</Label>
-                <Input
-                  id="confirmEmail"
-                  type="email"
-                  value={companyData.confirmEmail}
-                  onChange={(e) => setCompanyData({...companyData, confirmEmail: e.target.value})}
-                  placeholder="empresa@email.com"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="cep">CEP *</Label>
-                <MaskedInput
-                  id="cep"
-                  type="cep"
-                  value={companyData.cep}
-                  onChange={(value) => {
-                    setCompanyData({...companyData, cep: value});
-                    // Buscar dados do CEP quando tiver 8 dígitos
-                    if (value.replace(/\D/g, '').length === 8) {
-                      buscarCep(value);
-                    }
-                  }}
-                  placeholder="00000-000"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="neighborhood">Bairro *</Label>
-                <Input
-                  id="neighborhood"
-                  value={companyData.neighborhood}
-                  onChange={(e) => setCompanyData({...companyData, neighborhood: e.target.value})}
-                  placeholder="Digite o nome do bairro"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="street">Rua/Avenida *</Label>
-                <Input
-                  id="street"
-                  value={companyData.street}
-                  onChange={(e) => setCompanyData({...companyData, street: e.target.value})}
-                  placeholder="Nome da rua"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="number">Número *</Label>
-                <Input
-                  id="number"
-                  value={companyData.number}
-                  onChange={(e) => setCompanyData({...companyData, number: e.target.value})}
-                  placeholder="123"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="complement">Complemento</Label>
-                <Input
-                  id="complement"
-                  value={companyData.complement}
-                  onChange={(e) => setCompanyData({...companyData, complement: e.target.value})}
-                  placeholder="Sala, andar, etc."
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="state">Estado *</Label>
-                <Input
-                  id="state"
-                  value={companyData.state}
-                  onChange={(e) => setCompanyData({...companyData, state: e.target.value})}
-                  placeholder="Estado (preenchido automaticamente pelo CEP)"
-                  readOnly
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="city">Cidade *</Label>
-                <Input
-                  id="city"
-                  value={companyData.city}
-                  onChange={(e) => setCompanyData({...companyData, city: e.target.value})}
-                  placeholder="Cidade (preenchida automaticamente pelo CEP)"
-                  readOnly
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="phone">Telefone da Empresa *</Label>
-                <MaskedInput
-                  id="phone"
-                  type="phone"
-                  value={companyData.phone}
-                  onChange={(value) => setCompanyData({...companyData, phone: value})}
-                  placeholder="(00) 00000-0000"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="averageProjects">Em média quantos projetos desenvolvidos/instalados?</Label>
-                <Input
-                  id="averageProjects"
-                  type="number"
-                  value={companyData.averageProjects || ''}
-                  onChange={(e) => setCompanyData({...companyData, averageProjects: e.target.value})}
-                  placeholder="0"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="creditIssues">Você sofre com problema de crédito?</Label>
-                <Select onValueChange={(value) => setCompanyData({...companyData, creditIssues: value})} value={companyData.creditIssues}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione uma opção" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="sim">Sim</SelectItem>
-                    <SelectItem value="nao">Não</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="teamSize">Tamanho da Equipe de Vendas</Label>
-                <Select onValueChange={(value) => setCompanyData({...companyData, teamSize: value})} value={companyData.teamSize}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o tamanho da equipe" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1-2">1-2 pessoas</SelectItem>
-                    <SelectItem value="3-5">3-5 pessoas</SelectItem>
-                    <SelectItem value="6-10">6-10 pessoas</SelectItem>
-                    <SelectItem value="11-20">11-20 pessoas</SelectItem>
-                    <SelectItem value="20+">Mais de 20 pessoas</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="revenue">Faturamento do Ano Passado</Label>
-                <MaskedInput
-                  type="currency"
-                  id="revenue"
-                  value={companyData.revenue}
-                  onChange={(value) => setCompanyData({...companyData, revenue: value})}
-                  placeholder="R$ 0,00"
-                  
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="hasInstallation">Você tem equipe de instalação?</Label>
-                <Select onValueChange={(value) => setCompanyData({...companyData, hasInstallation: value})} value={companyData.hasInstallation}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione uma opção" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="sim">Sim</SelectItem>
-                    <SelectItem value="nao">Não</SelectItem>
-                    <SelectItem value="terceirizo">Terceirizo</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="howKnewUs">Como Conheceu a Koposol?</Label>
-                <Select onValueChange={(value) => setCompanyData({...companyData, howKnewUs: value})} value={companyData.howKnewUs}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione uma opção" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="instagram">Instagram</SelectItem>
-                    <SelectItem value="linkedin">LinkedIn</SelectItem>
-                    <SelectItem value="google">Google</SelectItem>
-                    <SelectItem value="facebook">Facebook</SelectItem>
-                    <SelectItem value="indicacao">Indicação</SelectItem>
-                    <SelectItem value="outros">Outros</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-        );
-
-      case 2:
-        return (
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Dados do Titular (Sócio Principal)</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="fullName">Nome Completo do Titular *</Label>
-                <Input
-                  id="fullName"
-                  value={ownerData.fullName}
-                  onChange={(e) => setOwnerData({...ownerData, fullName: e.target.value})}
-                  placeholder="Nome completo"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="cpf">CPF do Titular *</Label>
-                <MaskedInput
-                  id="cpf"
-                  type="cpf"
-                  value={ownerData.cpf}
-                  onChange={(value) => setOwnerData({...ownerData, cpf: value})}
-                  placeholder="000.000.000-00"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="ownerPhone">Telefone de Contato *</Label>
-                <MaskedInput
-                  id="ownerPhone"
-                  type="phone"
-                  value={ownerData.phone}
-                  onChange={(value) => setOwnerData({...ownerData, phone: value})}
-                  placeholder="(00) 00000-0000"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="ownerEmail">E-mail de Contato *</Label>
-                <Input
-                  id="ownerEmail"
-                  type="email"
-                  value={ownerData.email}
-                  onChange={(e) => setOwnerData({...ownerData, email: e.target.value})}
-                  placeholder="titular@email.com"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="password">Senha *</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={ownerData.password}
-                  onChange={(e) => setOwnerData({...ownerData, password: e.target.value})}
-                  placeholder="••••••••"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirmação de Senha *</Label>
-                <Input
-                  id="confirmPassword"
-                  type="password"
-                  value={ownerData.confirmPassword}
-                  onChange={(e) => setOwnerData({...ownerData, confirmPassword: e.target.value})}
-                  placeholder="••••••••"
-                  required
-                />
-              </div>
-            </div>
-          </div>
-        );
-
-      case 3:
-        return (
-          <div className="space-y-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Anexos e Documentos</h3>
-            
-            <div className="alert alert-info p-4 mb-6 bg-blue-50 border border-blue-200 rounded-md">
-              <p className="text-blue-700 text-sm">
-                Os documentos são obrigatórios para o cadastro. Por favor, anexe todos os documentos solicitados para prosseguir.
-              </p>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <FileUpload 
-                label="Contrato Social da Empresa" 
-                onFileSelect={(file) => setDocuments({...documents, contratoSocial: file})} 
-              />
-              <FileUpload 
-                label="Comprovante de Endereço" 
-                onFileSelect={(file) => setDocuments({...documents, comprovanteEndereco: file})} 
-              />
-              <FileUpload 
-                label="RG do Sócio" 
-                onFileSelect={(file) => setDocuments({...documents, rgSocios: file})} 
-              />
-              <FileUpload 
-                label="CNH do Sócio" 
-                onFileSelect={(file) => setDocuments({...documents, cnhSocios: file})} 
-              />
-              <FileUpload 
-                label="Comprovante de Dados Bancário" 
-                onFileSelect={(file) => setDocuments({...documents, dadosBancarios: file})} 
-              />
-              <FileUpload 
-                label="Foto da Fachada" 
-                onFileSelect={(file) => setDocuments({...documents, fotoFachada: file})} 
-              />
-            </div>
-          </div>
-        );
-
-      case 4:
-        return (
-          <div className="space-y-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Projetos de Engenharia</h3>
-            
-            {[1, 2, 3].map((projectNum, index) => (
-              <Card key={projectNum} className="p-4">
-                <h4 className="text-md font-semibold text-gray-800 mb-4">
-                  Projeto de Engenharia {projectNum} *
-                </h4>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Nome do Cliente (do projeto)</Label>
-                    <Input 
-                      placeholder="Nome do cliente"  
-                      value={projectsData[index].nomeCliente}
-                      onChange={(e) => handleProjectDataChange(index, 'nomeCliente', e.target.value)}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Potência do Projeto (kWp)</Label>
-                    <Input 
-                      placeholder="0.00" 
-                      type="number" 
-                      step="0.01"  
-                      value={projectsData[index].potenciaKwp}
-                      onChange={(e) => handleProjectDataChange(index, 'potenciaKwp', e.target.value)}
-                    />
-                  </div>
-
-                  <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <FileUpload 
-                      label="Anexo de ART" 
-                      onFileSelect={(file) => handleProjectDataChange(index, 'artFile', file)}
-                    />
-                    <FileUpload 
-                      label="Memorial Descritivo" 
-                      onFileSelect={(file) => handleProjectDataChange(index, 'memorialFile', file)}
-                    />
-                    <FileUpload 
-                      label="Outros Documentos" 
-                      onFileSelect={(file) => handleProjectDataChange(index, 'outrosFile', file)}
-                    />
-                  </div>
-                </div>
-              </Card>
-            ))}
-
-            {/* Consent Section */}
-            <Card className="p-6 bg-yellow-50 border-yellow-200">
-              <div className="space-y-4">
-                <h4 className="text-md font-semibold text-gray-800">
-                  Consentimento e Aviso Legal
-                </h4>
-                
-                <p className="text-sm text-gray-700 leading-relaxed">
-                  Autorizo a consultar os débitos e responsabilidades decorrentes de operações 
-                  com características de crédito e as informações e os registros de medidas 
-                  judiciais que em meu nome / nome do cliente constem ou venham a constar do 
-                  Sistema de Informação de Crédito (SCR), gerido pelo Banco Central do Brasil - 
-                  BACEN, ou sistemas que venham a complementá-lo ou substituí-lo.
-                </p>
-
-                <p className="text-sm text-gray-600 font-medium">
-                  <strong>AVISO:</strong> Os dados informados acima são de responsabilidade da 
-                  empresa em questão e estão sujeitos a análise e validação interna.
-                </p>
-
-                <div className="flex items-center space-x-2 mt-4">
-                  <Checkbox 
-                    id="consent" 
-                    checked={consentChecked} 
-                    onCheckedChange={(checked) => setConsentChecked(checked as boolean)} 
-                    required
-                  />
-                  <label
-                    htmlFor="consent"
-                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                  >
-                    Autorizo a Koposol a realizar as devidas consultas *
-                  </label>
-                </div>
-              </div>
-            </Card>
-          </div>
-        );
-
-      default:
-        return null;
+  const handleNext = () => {
+    let isValid = false;
+    if (currentStep === 1) isValid = validateStep1();
+    else if (currentStep === 2) isValid = validateStep2();
+    else if (currentStep === 3) isValid = validateStep3();
+    
+    if (isValid && currentStep < steps.length) {
+      setCurrentStep(currentStep + 1);
     }
   };
 
+  const handlePrev = () => {
+    if (currentStep > 1) setCurrentStep(currentStep - 1);
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-purple-50 py-8">
-      <div className="container mx-auto px-4">
-        {/* Header */}
+    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-4xl">
         <div className="text-center mb-8">
-          <Button
-            variant="ghost"
-            onClick={() => navigate('/login')}
-            className="mb-4 text-gray-600 hover:text-gray-900"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Voltar ao login
-          </Button>
-          
-          <KoposolLogo className="justify-center mb-4" size="lg" />
-          <h1 className="text-3xl font-bold text-gray-900">
-            Cadastro de Integrador
-          </h1>
-          <p className="text-gray-600 mt-2">
-            Preencha os dados para se tornar um parceiro Koposol
-          </p>
+          <KoposolLogo className="mx-auto h-12 w-auto" />
+          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">Complete seu Cadastro de Parceiro</h2>
+          <p className="mt-2 text-sm text-gray-600">Preencha os campos abaixo para finalizar seu cadastro.</p>
         </div>
 
-        {/* Progress Indicator */}
-        <StepIndicator />
+        <div className="mb-8 px-4 sm:px-0">
+            <div className="relative">
+                <div className="absolute top-1/2 left-0 w-full h-0.5 bg-gray-200"></div>
+                <div className="absolute top-1/2 left-0 h-0.5 bg-primary" style={{ width: `${((currentStep - 1) / (steps.length - 1)) * 100}%` }}></div>
+                <div className="relative flex justify-between">
+                    {steps.map((step) => (
+                        <div key={step.number} className="flex flex-col items-center">
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${currentStep >= step.number ? 'bg-primary text-white' : 'bg-gray-200 text-gray-500'}`}>
+                                {step.icon}
+                            </div>
+                            <p className={`mt-2 text-xs text-center ${currentStep >= step.number ? 'text-primary font-semibold' : 'text-gray-500'}`}>{step.title}</p>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
 
-        {/* Form Card */}
         <form onSubmit={handleSubmit}>
-          <Card className="max-w-4xl mx-auto shadow-xl border-0">
+          <Card>
             <CardHeader>
-              <CardTitle className="text-center">
-                {steps[currentStep - 1].title}
-              </CardTitle>
+              <CardTitle className="text-xl">{steps[currentStep - 1].title}</CardTitle>
             </CardHeader>
-            <CardContent className="p-8">
-              {renderStepContent()}
-
-              {/* Navigation Buttons */}
-              <div className="flex justify-between items-center mt-8 pt-6 border-t">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handlePrev}
-                  disabled={currentStep === 1}
-                  className="flex items-center"
-                >
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Anterior
-                </Button>
-
-                {currentStep < 4 ? (
-                  <Button
-                    type="button"
-                    onClick={handleNext}
-                    className="bg-purple-600 text-white hover:bg-purple-700 flex items-center"
-                  >
-                    Próximo
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
+            <CardContent>
+              {currentStep === 1 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="md:col-span-2"><Label htmlFor="companyName">Razão Social</Label><Input id="companyName" value={companyData.companyName} onChange={(e) => setCompanyData({ ...companyData, companyName: e.target.value })} /></div>
+                  <div><Label htmlFor="cnpj">CNPJ</Label><MaskedInput mask="99.999.999/9999-99" id="cnpj" value={companyData.cnpj} onChange={(value) => setCompanyData({ ...companyData, cnpj: value })} /></div>
+                  <div>
+                    <Label htmlFor="cep">CEP</Label>
+                    <MaskedInput 
+                      type="cep"
+                      id="cep" 
+                      value={companyData.cep} 
+                      onChange={(value) => setCompanyData({ ...companyData, cep: value })}
+                      onBlur={(e) => buscarCep(e.target.value)}
+                    />
+                  </div>
+                  <div><Label htmlFor="street">Logradouro</Label><Input id="street" value={companyData.street} onChange={(e) => setCompanyData({ ...companyData, street: e.target.value })} disabled /></div>
+                  <div><Label htmlFor="number">Número</Label><Input id="number" value={companyData.number} onChange={(e) => setCompanyData({ ...companyData, number: e.target.value })} /></div>
+                  <div><Label htmlFor="complement">Complemento</Label><Input id="complement" value={companyData.complement} onChange={(e) => setCompanyData({ ...companyData, complement: e.target.value })} /></div>
+                  <div>
+                    <Label htmlFor="state">Estado</Label>
+                    <Input id="state" value={companyData.state} onChange={(e) => setCompanyData({ ...companyData, state: e.target.value })} disabled />
+                  </div>
+                  <div><Label htmlFor="city">Cidade</Label><Input id="city" value={companyData.city} onChange={(e) => setCompanyData({ ...companyData, city: e.target.value })} disabled /></div>
+                  <div><Label htmlFor="neighborhood">Bairro</Label><Input id="neighborhood" value={companyData.neighborhood} onChange={(e) => setCompanyData({ ...companyData, neighborhood: e.target.value })} disabled /></div>
+                  <div><Label htmlFor="phone">Telefone</Label><MaskedInput type="phone" id="phone" value={companyData.phone} onChange={(value) => setCompanyData({ ...companyData, phone: value })} /></div>
+                  
+                  {/* Campos de Seleção Restaurados */}
+                  <div><Label>Tamanho da equipe</Label><Select value={companyData.teamSize} onValueChange={(value) => setCompanyData({ ...companyData, teamSize: value })}><SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger><SelectContent><SelectItem value="1-5">1-5</SelectItem><SelectItem value="6-10">6-10</SelectItem><SelectItem value="11-20">11-20</SelectItem><SelectItem value="21-50">21-50</SelectItem><SelectItem value="50+">50+</SelectItem></SelectContent></Select></div>
+                  <div><Label>Faturamento mensal</Label><Select value={companyData.revenue} onValueChange={(value) => setCompanyData({ ...companyData, revenue: value })}><SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger><SelectContent><SelectItem value="Até 50 mil">Até 50 mil</SelectItem><SelectItem value="De 50 mil a 100 mil">De 50 mil a 100 mil</SelectItem><SelectItem value="De 100 mil a 300 mil">De 100 mil a 300 mil</SelectItem><SelectItem value="De 300 mil a 1 milhão">De 300 mil a 1 milhão</SelectItem><SelectItem value="Acima de 1 milhão">Acima de 1 milhão</SelectItem></SelectContent></Select></div>
+                  <div><Label>Possui equipe de instalação própria?</Label><Select value={companyData.hasInstallation} onValueChange={(value) => setCompanyData({ ...companyData, hasInstallation: value })}><SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger><SelectContent><SelectItem value="sim">Sim</SelectItem><SelectItem value="nao">Não</SelectItem></SelectContent></Select></div>
+                  <div><Label>Como nos conheceu?</Label><Select value={companyData.howKnewUs} onValueChange={(value) => setCompanyData({ ...companyData, howKnewUs: value })}><SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger><SelectContent><SelectItem value="indicação">Indicação</SelectItem><SelectItem value="google">Google</SelectItem><SelectItem value="instagram">Instagram</SelectItem><SelectItem value="facebook">Facebook</SelectItem><SelectItem value="linkedin">LinkedIn</SelectItem><SelectItem value="evento">Evento</SelectItem><SelectItem value="outros">Outros</SelectItem></SelectContent></Select></div>
+                  <div><Label>Média de projetos/mês</Label><Select value={companyData.averageProjects} onValueChange={(value) => setCompanyData({ ...companyData, averageProjects: value })}><SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger><SelectContent><SelectItem value="1-5">1-5</SelectItem><SelectItem value="6-10">6-10</SelectItem><SelectItem value="11-20">11-20</SelectItem><SelectItem value="21-50">21-50</SelectItem><SelectItem value="50+">50+</SelectItem></SelectContent></Select></div>
+                  <div><Label>Já teve ou tem algum problema de crédito?</Label><Select value={companyData.creditIssues} onValueChange={(value) => setCompanyData({ ...companyData, creditIssues: value })}><SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger><SelectContent><SelectItem value="sim">Sim</SelectItem><SelectItem value="nao">Não</SelectItem></SelectContent></Select></div>
+                </div>
+              )}
+              {currentStep === 2 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="md:col-span-2"><Label htmlFor="fullName">Nome Completo do Titular</Label><Input id="fullName" value={ownerData.fullName} onChange={(e) => setOwnerData({...ownerData, fullName: e.target.value})} /></div>
+                  <div><Label htmlFor="cpf">CPF do Titular</Label><MaskedInput type="cpf" id="cpf" value={ownerData.cpf} onChange={(value) => setOwnerData({...ownerData, cpf: value})} /></div>
+                  <div><Label htmlFor="ownerPhone">Telefone do Titular</Label><MaskedInput type="phone" id="ownerPhone" value={ownerData.phone} onChange={(value) => setOwnerData({...ownerData, phone: value})} /></div>
+                  <div className="md:col-span-2"><Label htmlFor="ownerEmail">E-mail do Titular (Login)</Label><Input type="email" id="ownerEmail" value={ownerData.email} disabled /></div>
+                </div>
+              )}
+              {currentStep === 3 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {Object.keys(documents).map(key => (
+                        <div key={key}><Label>{getFieldLabel(key)}</Label><FileUpload label="" onFileSelect={(files) => setDocuments(prev => ({ ...prev, [key]: files[0] || null }))} /></div>
+                    ))}
+                </div>
+              )}
+              {currentStep === 4 && (
+                <div>
+                  <h3 className="text-lg font-medium mb-4">Projetos de Engenharia (Opcional)</h3>
+                  {projectsData.map((project, index) => (
+                    <div key={index} className="border p-4 rounded-lg mb-4">
+                      <h4 className="font-semibold mb-2">Projeto {index + 1}</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div><Label>Nome do Cliente</Label><Input value={project.nomeCliente} onChange={(e) => handleProjectDataChange(index, 'nomeCliente', e.target.value)} /></div>
+                        <div><Label>Potência (kWp)</Label><Input type="number" value={project.potenciaKwp} onChange={(e) => handleProjectDataChange(index, 'potenciaKwp', e.target.value)} /></div>
+                        <div><Label>ART</Label><FileUpload label="" onFileSelect={(files) => handleProjectDataChange(index, 'artFile', files[0] || null)} /></div>
+                        <div><Label>Memorial Descritivo</Label><FileUpload label="" onFileSelect={(files) => handleProjectDataChange(index, 'memorialFile', files[0] || null)} /></div>
+                        <div className="md:col-span-2"><Label>Outros Documentos</Label><FileUpload label="" onFileSelect={(files) => handleProjectDataChange(index, 'outrosFile', files[0] || null)} /></div>
+                      </div>
+                    </div>
+                  ))}
+                  <div className="mt-6 flex items-center space-x-2">
+                    <Checkbox id="consent" checked={consentChecked} onCheckedChange={(checked) => setConsentChecked(checked as boolean)} />
+                    <Label htmlFor="consent" className="text-sm">Autorizo a Koposol a realizar as devidas consultas nos órgãos de proteção ao crédito.</Label>
+                  </div>
+                </div>
+              )}
+              <div className="mt-8 flex justify-between">
+                <Button type="button" variant="outline" onClick={handlePrev} disabled={currentStep === 1}> <ArrowLeft className="mr-2 h-4 w-4" /> Anterior</Button>
+                {currentStep < steps.length ? (
+                  <Button type="button" onClick={handleNext}>Próximo <ArrowRight className="ml-2 h-4 w-4" /></Button>
                 ) : (
-                  <Button 
-                    type="submit" 
-                    className="bg-primary hover:bg-primary/90" 
-                    disabled={!consentChecked}
-                    onClick={() => console.log('Botão de finalizar clicado')}
-                  >
+                  <Button type="submit" className="bg-primary hover:bg-primary/90" disabled={!consentChecked || isLoading}>
                     {isLoading ? 'Enviando...' : 'Finalizar Cadastro'}
                   </Button>
                 )}
@@ -1086,7 +447,6 @@ const Register = () => {
           </Card>
         </form>
 
-        {/* Information Message */}
         <Card className="max-w-4xl mx-auto mt-6 bg-blue-50 border-blue-200">
           <CardContent className="p-6">
             <p className="text-sm text-blue-800 leading-relaxed">

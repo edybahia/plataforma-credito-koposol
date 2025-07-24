@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Input } from '@/components/ui/input';
 import { formatCPF, formatCNPJ, formatPhone, formatCEP, formatCurrency } from '@/utils/masks';
@@ -7,6 +6,7 @@ interface MaskedInputProps {
   type: 'cpf' | 'cnpj' | 'phone' | 'cep' | 'currency';
   value: string;
   onChange: (value: string) => void;
+  onBlur?: (e: React.FocusEvent<HTMLInputElement>) => void;
   placeholder?: string;
   required?: boolean;
   id?: string;
@@ -17,6 +17,7 @@ const MaskedInput: React.FC<MaskedInputProps> = ({
   type,
   value,
   onChange,
+  onBlur,
   placeholder,
   required,
   id,
@@ -66,6 +67,7 @@ const MaskedInput: React.FC<MaskedInputProps> = ({
       id={id}
       value={value}
       onChange={handleChange}
+      onBlur={onBlur}
       placeholder={placeholder}
       required={required}
       maxLength={getMaxLength()}
